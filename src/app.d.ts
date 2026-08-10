@@ -3,6 +3,7 @@ declare global {
     interface Platform {
       env: {
         DB: D1Database;
+        SOUTHBAG_FILE_KEY?: string;
       };
     }
     interface Locals {

@@ -47,9 +47,13 @@ function uniqueId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
+export function newOfficeFileId(kind: Kind): string {
+  return `${kind}-${uniqueId()}`;
+}
+
 export function createFile(kind: Kind, owner = 'You'): OfficeFile {
   const modified = new Date().toISOString();
-  const common = { id: `${kind}-${uniqueId()}`, modified, owner };
+  const common = { id: newOfficeFileId(kind), modified, owner };
   if (kind === 'doc') {
     return { ...common, kind, title: 'Untitled document', content: '' };
   }
