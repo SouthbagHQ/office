@@ -15,7 +15,7 @@ function base64Url(bytes: Uint8Array) {
 }
 
 export const GET: RequestHandler = async ({ cookies, url }) => {
-  if (!env.OIDC_CLIENT_ID) {
+  if (!env.OIDC_CLIENT_ID || !env.OIDC_CLIENT_SECRET || !env.SESSION_SECRET) {
     redirect(302, '/?auth=unconfigured');
   }
 
@@ -23,12 +23,14 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
   const appOrigin = env.ORIGIN || url.origin;
   const state = randomToken();
   const verifier = randomToken();
+  const nonce = randomToken();
   const challenge = base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(verifier))));
   const secure = appOrigin.startsWith('https://');
   const cookieOptions = { path: '/', httpOnly: true, secure, sameSite: 'lax' as const, maxAge: 600 };
 
   cookies.set('southbag_office_oauth_state', state, cookieOptions);
   cookies.set('southbag_office_oauth_verifier', verifier, cookieOptions);
+  cookies.set('southbag_office_oauth_nonce', nonce, cookieOptions);
 
   const authorize = new URL('/api/auth/oauth2/authorize', identityOrigin);
   authorize.search = new URLSearchParams({
@@ -37,6 +39,7 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
     response_type: 'code',
     scope: 'openid profile email',
     state,
+    nonce,
     code_challenge: challenge,
     code_challenge_method: 'S256'
   }).toString();

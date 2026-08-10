@@ -4,7 +4,7 @@
   import Home from '$lib/components/Home.svelte';
   import Sheets from '$lib/components/Sheets.svelte';
   import Slides from '$lib/components/Slides.svelte';
-  import { createFile, initialWorkspace, kindLabel, type Kind, type OfficeFile, type Workspace } from '$lib/workspace';
+  import { createFile, initialWorkspace, type Kind, type OfficeFile, type Workspace } from '$lib/workspace';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -64,7 +64,7 @@
   <meta name="description" content="Southbag Office brings documents, presentations, and spreadsheets together, against their wishes." />
 </svelte:head>
 
-<div class="office-app" class:in-editor={Boolean(activeFile)}>
+<div class="office-app" class:in-editor={Boolean(activeFile)} data-ready={loaded}>
   {#if !activeFile}
     <header class="global-header">
       <button class="brand" onclick={() => navigate('home')} aria-label="Southbag Office home">

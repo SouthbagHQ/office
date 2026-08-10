@@ -23,6 +23,7 @@ Then set `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and a long random `SESSION_SECR
 ```sh
 bun run check
 bun run test
+bun run test:e2e
 bun run build
 ```
 

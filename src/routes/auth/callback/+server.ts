@@ -1,6 +1,7 @@
 import { env } from '$env/dynamic/private';
 import { setSession, type OfficeUser } from '$lib/server/session';
 import { error, redirect, type RequestHandler } from '@sveltejs/kit';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 type TokenResponse = { access_token?: string; token_type?: string; id_token?: string; error?: string };
 
@@ -9,10 +10,12 @@ export const GET: RequestHandler = async ({ cookies, url, fetch }) => {
   const state = url.searchParams.get('state');
   const expectedState = cookies.get('southbag_office_oauth_state');
   const verifier = cookies.get('southbag_office_oauth_verifier');
+  const nonce = cookies.get('southbag_office_oauth_nonce');
   cookies.delete('southbag_office_oauth_state', { path: '/' });
   cookies.delete('southbag_office_oauth_verifier', { path: '/' });
+  cookies.delete('southbag_office_oauth_nonce', { path: '/' });
 
-  if (!code || !state || state !== expectedState || !verifier) error(400, 'Identity paperwork did not match.');
+  if (!code || !state || state !== expectedState || !verifier || !nonce) error(400, 'Identity paperwork did not match.');
   if (!env.OIDC_CLIENT_ID || !env.OIDC_CLIENT_SECRET || !env.SESSION_SECRET) {
     error(503, 'Office SSO is missing its deployment secrets.');
   }
@@ -37,10 +40,26 @@ export const GET: RequestHandler = async ({ cookies, url, fetch }) => {
     })
   });
   const tokens = (await tokenResponse.json().catch(() => ({}))) as TokenResponse;
-  if (!tokenResponse.ok || !tokens.access_token) error(502, tokens.error || 'Identity token exchange failed.');
+  if (!tokenResponse.ok || !tokens.access_token || !tokens.id_token) error(502, tokens.error || 'Identity token exchange failed.');
 
   const metadataResponse = await fetch(new URL('/.well-known/openid-configuration', identityOrigin));
-  const metadata = (await metadataResponse.json().catch(() => ({}))) as { userinfo_endpoint?: string };
+  const metadata = (await metadataResponse.json().catch(() => ({}))) as {
+    issuer?: string;
+    jwks_uri?: string;
+    userinfo_endpoint?: string;
+  };
+  if (!metadataResponse.ok || !metadata.jwks_uri || metadata.issuer !== identityOrigin) {
+    error(502, 'Identity discovery disagreed with itself.');
+  }
+  try {
+    const verified = await jwtVerify(tokens.id_token, createRemoteJWKSet(new URL(metadata.jwks_uri)), {
+      issuer: identityOrigin,
+      audience: env.OIDC_CLIENT_ID
+    });
+    if (verified.payload.nonce !== nonce) throw new Error('nonce mismatch');
+  } catch {
+    error(401, 'Identity token signature or nonce was not acceptable.');
+  }
   const userinfoEndpoint = metadata.userinfo_endpoint || new URL('/api/auth/oauth2/userinfo', identityOrigin).toString();
   const userResponse = await fetch(userinfoEndpoint, {
     headers: { authorization: `${tokens.token_type || 'Bearer'} ${tokens.access_token}` }
