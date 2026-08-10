@@ -17,6 +17,7 @@ button, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { color: inherit; }
 img[src="/southbag-logo.png"] { animation:none !important; }
+.office-app img { -webkit-user-drag: none; }
 
 @keyframes ambient-text {
   0%,100% { text-shadow:1px 1px 2px rgba(0,0,0,.27),2px 2px 4px rgba(0,0,0,.12); }

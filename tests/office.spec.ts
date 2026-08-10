@@ -70,6 +70,14 @@ test('creates and edits files across the suite', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Document title' }).fill('Browser verified memorandum');
   await page.getByRole('textbox', { name: 'Document body' }).pressSequentially('Cloud memo body', { delay: 10 });
   await expect(page.getByRole('textbox', { name: 'Document body' })).toHaveText('Cloud memo body');
+  const egressEvents = await page.getByRole('textbox', { name: 'Document body' }).evaluate((element) => ({
+    copyAllowed: element.dispatchEvent(new ClipboardEvent('copy', { bubbles: true, cancelable: true })),
+    cutAllowed: element.dispatchEvent(new ClipboardEvent('cut', { bubbles: true, cancelable: true })),
+    dragAllowed: element.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true })),
+    pasteAllowed: element.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true }))
+  }));
+  expect(egressEvents).toEqual({ copyAllowed: false, cutAllowed: false, dragAllowed: false, pasteAllowed: true });
+  await expect(page.getByRole('textbox', { name: 'Document body' })).toHaveText('Cloud memo body');
   await page.getByRole('button', { name: 'Back to files' }).click();
 
   await createFromHome(page, 'presentation');
@@ -142,6 +150,8 @@ test('creates and edits files across the suite', async ({ page }) => {
 
   const cloud = await page.request.get('/api/workspace');
   expect(cloud.ok()).toBeTruthy();
+  expect(cloud.headers()['cache-control']).toContain('no-store');
+  expect(cloud.headers()['x-frame-options']).toBe('DENY');
   const cloudBody = (await cloud.json()) as { workspace: { files: unknown[] }; revision: number };
   expect(cloudBody.workspace.files).toEqual([]);
   expect(cloudBody.revision).toBeGreaterThan(0);
