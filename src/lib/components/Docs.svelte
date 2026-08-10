@@ -49,15 +49,15 @@
         oninput={(event) => onChange({ ...file, title: event.currentTarget.value, modified: new Date().toISOString() })}
       />
       <nav class="menu-strip" aria-label="Document menus">
-        <button onclick={() => alert('File is already here.')}>Elsewhere</button>
-        <button onclick={() => command('undo')}>Redo backwards</button>
-        <button onclick={locate}>Replace without replacing</button>
-        <button onclick={() => alert('Insert has been inserted into the menu.')}>Remove</button>
-        <button onclick={() => (zoom = zoom === 100 ? 82 : 100)}>Actual size-ish</button>
+        <button onclick={() => alert('File is already here and saving automatically.')}>File</button>
+        <button onclick={() => command('undo')}>Edit</button>
+        <button onclick={locate}>Find</button>
+        <button onclick={() => alert('Insert has been inserted into the menu.')}>Insert</button>
+        <button onclick={() => (zoom = zoom === 100 ? 82 : 100)}>View</button>
       </nav>
     </div>
     <span class="save-state">● {savedMessage}</span>
-    <a class="share-button" href="mailto:?subject=Unhelpfully shared document&body=The document is on my computer.">Share privately with everyone</a>
+    <a class="share-button" href="mailto:?subject=Southbag document&body=The document is saved in Southbag Office.">Share document</a>
   </header>
 
   <div class="toolbar" role="toolbar" aria-label="Document formatting">

@@ -29,13 +29,13 @@
   <div class="creation-zone">
     <p class="zone-label">Create from nothing (advanced)</p>
     <button class="create-card docs" onclick={() => onCreate('doc')}>
-      <span class="paper-icon">¶</span><strong>New spreadsheet</strong><small>Opens Docs</small>
+      <span class="paper-icon">¶</span><strong>New document</strong><small>Docs / page paperwork</small>
     </button>
     <button class="create-card slides" onclick={() => onCreate('slides')}>
-      <span class="paper-icon">▱</span><strong>New written document</strong><small>Opens Slides</small>
+      <span class="paper-icon">▱</span><strong>New presentation</strong><small>Slides / public speaking file</small>
     </button>
     <button class="create-card sheets" onclick={() => onCreate('sheet')}>
-      <span class="paper-icon">⌗</span><strong>New slideshow</strong><small>Opens Sheets</small>
+      <span class="paper-icon">⌗</span><strong>New spreadsheet</strong><small>Sheets / cells in captivity</small>
     </button>
     <button class="template-decoy" onclick={() => alert('Templates are available on the previous page. There is no previous page.')}>Browse 0 templates →</button>
   </div>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { mergeWorkspaces, type CloudWorkspace } from '$lib/cloud';
   import Docs from '$lib/components/Docs.svelte';
   import Home from '$lib/components/Home.svelte';
   import Sheets from '$lib/components/Sheets.svelte';
@@ -15,6 +16,12 @@
   let loaded = false;
   let notice = '';
   let showAccount = false;
+  let syncStatus: 'loading' | 'saving' | 'saved' | 'offline' | 'error' = 'loading';
+  let syncRevision = 0;
+  let syncUpdatedAt = '';
+  let saveTimer: number | undefined;
+  let pendingWorkspace: Workspace | null = null;
+  let saveInFlight = false;
 
   $: activeFile = workspace.files.find((file) => file.id === activeId) ?? null;
 
@@ -27,15 +34,112 @@
         notice = 'Your saved work was shaped incorrectly, so we placed the samples over here.';
       }
     }
+    syncRevision = Number(localStorage.getItem('southbag-office-revision') ?? '0') || 0;
+    syncUpdatedAt = localStorage.getItem('southbag-office-updated-at') ?? '';
     loaded = true;
     const params = new URLSearchParams(location.search);
     if (params.get('auth') === 'unconfigured') notice = 'SSO exists but this deployment forgot its client credentials.';
-    if (params.has('signed-in')) notice = 'Identity accepted. Your work remains locally global.';
+    if (params.has('signed-in')) notice = 'Identity accepted. Your cloud filing cabinet is now attached.';
+
+    void initialiseCloud(localStorage.getItem('southbag-office-dirty') === 'true');
+    const flushBeforeLeaving = () => {
+      if (pendingWorkspace) void flushCloud();
+    };
+    window.addEventListener('pagehide', flushBeforeLeaving);
+    window.addEventListener('online', flushBeforeLeaving);
+    return () => {
+      window.removeEventListener('pagehide', flushBeforeLeaving);
+      window.removeEventListener('online', flushBeforeLeaving);
+      if (saveTimer) window.clearTimeout(saveTimer);
+    };
   });
+
+  async function initialiseCloud(localDirty: boolean) {
+    syncStatus = 'loading';
+    if (localDirty) {
+      pendingWorkspace = workspace;
+      await flushCloud();
+      return;
+    }
+    try {
+      const response = await fetch('/api/workspace');
+      if (!response.ok) throw new Error('cloud load failed');
+      const cloud = (await response.json()) as Omit<CloudWorkspace, 'workspace'> & { workspace: Workspace | null };
+      if (!cloud.workspace) {
+        pendingWorkspace = workspace;
+        await flushCloud();
+        return;
+      }
+      workspace = cloud.workspace;
+      syncRevision = cloud.revision;
+      syncUpdatedAt = cloud.updatedAt;
+      localStorage.setItem('southbag-office-workspace-v1', JSON.stringify(workspace));
+      localStorage.setItem('southbag-office-revision', String(syncRevision));
+      localStorage.setItem('southbag-office-updated-at', syncUpdatedAt);
+      localStorage.setItem('southbag-office-dirty', 'false');
+      syncStatus = 'saved';
+    } catch {
+      syncStatus = navigator.onLine ? 'error' : 'offline';
+    }
+  }
+
+  function queueCloudSave(next: Workspace) {
+    pendingWorkspace = next;
+    syncStatus = navigator.onLine ? 'saving' : 'offline';
+    if (saveTimer) window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => void flushCloud(), 700);
+  }
+
+  async function flushCloud() {
+    if (saveInFlight || !pendingWorkspace) return;
+    const sending = pendingWorkspace;
+    pendingWorkspace = null;
+    saveInFlight = true;
+    syncStatus = 'saving';
+    try {
+      let response = await fetch('/api/workspace', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ workspace: sending, expectedRevision: syncRevision }),
+        keepalive: true
+      });
+      let cloud = (await response.json().catch(() => ({}))) as Partial<CloudWorkspace>;
+      if (response.status === 409 && cloud.workspace && typeof cloud.revision === 'number') {
+        const merged = mergeWorkspaces(sending, cloud.workspace);
+        workspace = merged;
+        localStorage.setItem('southbag-office-workspace-v1', JSON.stringify(merged));
+        syncRevision = cloud.revision;
+        response = await fetch('/api/workspace', {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ workspace: merged, expectedRevision: syncRevision }),
+          keepalive: true
+        });
+        cloud = (await response.json().catch(() => ({}))) as Partial<CloudWorkspace>;
+      }
+      if (!response.ok || typeof cloud.revision !== 'number') throw new Error('cloud save failed');
+      syncRevision = cloud.revision;
+      syncUpdatedAt = cloud.updatedAt ?? new Date().toISOString();
+      localStorage.setItem('southbag-office-revision', String(syncRevision));
+      localStorage.setItem('southbag-office-updated-at', syncUpdatedAt);
+      localStorage.setItem('southbag-office-dirty', 'false');
+      syncStatus = 'saved';
+    } catch {
+      pendingWorkspace = workspace;
+      syncStatus = navigator.onLine ? 'error' : 'offline';
+    } finally {
+      saveInFlight = false;
+      if (pendingWorkspace && syncStatus !== 'error' && syncStatus !== 'offline') queueCloudSave(pendingWorkspace);
+    }
+  }
 
   function persist(next: Workspace) {
     workspace = next;
-    if (loaded) localStorage.setItem('southbag-office-workspace-v1', JSON.stringify(next));
+    if (loaded) {
+      localStorage.setItem('southbag-office-workspace-v1', JSON.stringify(next));
+      localStorage.setItem('southbag-office-dirty', 'true');
+      queueCloudSave(next);
+    }
   }
 
   function updateFile(nextFile: OfficeFile) {
@@ -65,6 +169,14 @@
 </svelte:head>
 
 <div class="office-app" class:in-editor={Boolean(activeFile)} data-ready={loaded}>
+  <button
+    class="cloud-status cloud-{syncStatus}"
+    title={syncUpdatedAt ? `Last cloud save ${new Date(syncUpdatedAt).toLocaleString()}` : 'Cloud save status'}
+    onclick={() => (pendingWorkspace = workspace, void flushCloud())}
+  >
+    <i></i><strong>{syncStatus === 'saved' ? 'Saved to cloud' : syncStatus === 'saving' ? 'Saving to cloud…' : syncStatus === 'loading' ? 'Opening cloud…' : syncStatus === 'offline' ? 'Offline — saved here' : 'Cloud needs retry'}</strong>
+    <span>{data.user ? 'Identity workspace' : 'private guest workspace'}</span>
+  </button>
   {#if !activeFile}
     <header class="global-header">
       <button class="brand" onclick={() => navigate('home')} aria-label="Southbag Office home">
@@ -103,12 +215,12 @@
         <p class="sidebar-label">OFFICE APPARATUS</p>
         <button class="nav-home active" onclick={() => navigate('home')}><span>⌂</span><strong>Exit home</strong><small>you are here</small></button>
         <div class="app-nav">
-          <button class="doc-nav" onclick={() => navigate('doc')}><span>¶</span><strong>Sheets</strong><small>Docs editor</small></button>
-          <button class="slides-nav" onclick={() => navigate('slides')}><span>▰</span><strong>Docs</strong><small>Slides editor</small></button>
-          <button class="sheet-nav" onclick={() => navigate('sheet')}><span>⌗</span><strong>Slides</strong><small>Sheets editor</small></button>
+          <button class="doc-nav" onclick={() => navigate('doc')}><span>¶</span><strong>Docs</strong><small>write something official-ish</small></button>
+          <button class="slides-nav" onclick={() => navigate('slides')}><span>▰</span><strong>Slides</strong><small>present something sideways</small></button>
+          <button class="sheet-nav" onclick={() => navigate('sheet')}><span>⌗</span><strong>Sheets</strong><small>calculate with feelings</small></button>
         </div>
         <div class="sidebar-spacer"></div>
-        <button class="storage" onclick={() => alert('You are using an amount of browser storage.') }>
+        <button class="storage" onclick={() => alert(syncStatus === 'saved' ? 'Your files are saved in D1 cloud storage and cached in this browser.' : 'Your files are cached in this browser and waiting for the cloud.') }>
           <span class="storage-ring"><i></i></span>
           <span><strong>Storage remaining</strong><small>mostly</small></span>
         </button>

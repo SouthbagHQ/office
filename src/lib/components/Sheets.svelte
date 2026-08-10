@@ -37,7 +37,7 @@
     <div class="title-stack">
       <input class="file-title-input" aria-label="Spreadsheet title" value={file.title} oninput={(event) => onChange({ ...file, title: event.currentTarget.value, modified: new Date().toISOString() })} />
       <nav class="menu-strip" aria-label="Spreadsheet menus">
-        <button onclick={() => alert('Imported 0 files successfully.')}>Export inward</button><button onclick={fillExample}>Clear blanks</button><button onclick={() => (showRaw = !showRaw)}>Hide formulas</button><button onclick={() => (showChart = !showChart)}>Delete chart</button>
+        <button onclick={() => alert('This workbook saves itself.')}>File</button><button onclick={fillExample}>Insert example</button><button onclick={() => (showRaw = !showRaw)}>{showRaw ? 'Show values' : 'Show formulas'}</button><button onclick={() => (showChart = !showChart)}>{showChart ? 'Hide chart' : 'Show chart'}</button>
       </nav>
     </div>
     <span class="save-state">◆ Changes saved before they happen</span>
@@ -60,10 +60,10 @@
   <div class="sheet-area">
     <div class="grid-scroller">
       <table class="spreadsheet">
-        <thead><tr><th class="corner">☰</th>{#each columns as column}<th>{String.fromCharCode(column.charCodeAt(0) + 1)}</th>{/each}</tr></thead>
+        <thead><tr><th class="corner">☰</th>{#each columns as column}<th>{column}</th>{/each}</tr></thead>
         <tbody>
           {#each rows as row}
-            <tr><th>{row === 1 ? 0 : row}</th>
+            <tr><th>{row}</th>
               {#each columns as _column, columnIndex}
                 {@const name = cellName(columnIndex + 1, row)}
                 <td class:selected={selected === name} onclick={() => (selected = name)}>

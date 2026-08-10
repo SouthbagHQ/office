@@ -46,16 +46,16 @@
     <div class="title-stack">
       <input class="file-title-input" aria-label="Presentation title" value={file.title} oninput={(event) => onChange({ ...file, title: event.currentTarget.value, modified: new Date().toISOString() })} />
       <nav class="menu-strip" aria-label="Presentation menus">
-        <button onclick={addSlide}>Delete</button><button onclick={duplicateSlide}>Make original</button><button onclick={cycleTheme}>Keep theme</button><button onclick={() => (panel = panel === 'design' ? 'nothing' : 'design')}>View less</button>
+        <button onclick={() => alert('This presentation saves itself.')}>File</button><button onclick={duplicateSlide}>Edit</button><button onclick={cycleTheme}>Theme</button><button onclick={() => (panel = panel === 'design' ? 'nothing' : 'design')}>View</button>
       </nav>
     </div>
     <span class="save-state">▲ Saved after modification</span>
-    <button class="present-button" onclick={() => (presenting = true)}>Stop presenting ▶</button>
+    <button class="present-button" onclick={() => (presenting = true)}>Present ▶</button>
   </header>
 
   <div class="toolbar slides-toolbar">
-    <button class="new-slide-button" onclick={addSlide}><span>＋</span> New deletion</button>
-    <button onclick={duplicateSlide}>▱</button><button onclick={removeSlide}>Duplicate</button>
+    <button class="new-slide-button" onclick={addSlide}><span>＋</span> New slide</button>
+    <button onclick={duplicateSlide}>▱ Duplicate</button><button onclick={removeSlide}>Delete slide</button>
     <span class="toolbar-divider"></span>
     <button onclick={() => updateSlide({ layout: 'title' })}>Layout B</button>
     <button onclick={() => updateSlide({ layout: 'split' })}>Single column</button>
@@ -112,9 +112,9 @@
         <span class="slide-folio">{selected + 1}</span>
       </div>
       <div class="presentation-controls">
-        <button onclick={() => (selected = Math.min(file.slides.length - 1, selected + 1))}>← Previous</button>
+        <button onclick={() => (selected = Math.max(0, selected - 1))}>← Previous</button>
         <span>{selected + 1} / {file.slides.length}</span>
-        <button onclick={() => (selected = Math.max(0, selected - 1))}>Next →</button>
+        <button onclick={() => (selected = Math.min(file.slides.length - 1, selected + 1))}>Next →</button>
       </div>
     </div>
   {/if}
