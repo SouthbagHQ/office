@@ -14,6 +14,8 @@
   let activeId: string | null = null;
   let query = '';
   let loaded = false;
+  let opening = true;
+  let operationLoading = '';
   let notice = '';
   let showAccount = false;
   let syncStatus: 'loading' | 'saving' | 'saved' | 'offline' | 'error' = 'loading';
@@ -26,7 +28,7 @@
   $: activeFile = workspace.files.find((file) => file.id === activeId) ?? null;
 
   function storageKey(name: string) {
-    return `southbag-office-${data.user?.sub ?? 'blocked'}-${name}`;
+    return `southbag-office-v2-${data.user?.sub ?? 'blocked'}-${name}`;
   }
 
   onMount(() => {
@@ -35,7 +37,7 @@
       try {
         workspace = JSON.parse(saved) as Workspace;
       } catch {
-        notice = 'Your saved work was shaped incorrectly, so we placed the samples over here.';
+        notice = 'The local workspace could not be opened.';
       }
     }
     syncRevision = Number(localStorage.getItem(storageKey('revision')) ?? '0') || 0;
@@ -43,9 +45,9 @@
     loaded = true;
     const params = new URLSearchParams(location.search);
     if (params.get('auth') === 'unconfigured') notice = 'SSO exists but this deployment forgot its client credentials.';
-    if (params.has('signed-in')) notice = 'Identity accepted. Your cloud filing cabinet is now attached.';
+    if (params.has('signed-in')) notice = 'Signed in. Cloud storage connected.';
 
-    void initialiseCloud(localStorage.getItem(storageKey('dirty')) === 'true');
+    void openWorkspace(localStorage.getItem(storageKey('dirty')) === 'true');
     const flushBeforeLeaving = () => {
       if (pendingWorkspace) void flushCloud();
     };
@@ -57,6 +59,13 @@
       if (saveTimer) window.clearTimeout(saveTimer);
     };
   });
+
+  const delay = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
+  async function openWorkspace(localDirty: boolean) {
+    await Promise.all([initialiseCloud(localDirty), delay(750)]);
+    opening = false;
+  }
 
   async function initialiseCloud(localDirty: boolean) {
     syncStatus = 'loading';
@@ -150,10 +159,20 @@
     persist({ files: workspace.files.map((file) => (file.id === nextFile.id ? nextFile : file)) });
   }
 
-  function create(kind: Kind) {
-    const next = createFile(kind, workspace.files.filter((file) => file.kind === kind).length + 1);
+  async function create(kind: Kind) {
+    operationLoading = kind === 'doc' ? 'Opening document…' : kind === 'slides' ? 'Opening presentation…' : 'Opening spreadsheet…';
+    await delay(420);
+    const next = createFile(kind, data.user?.name ?? 'You');
     persist({ files: [next, ...workspace.files] });
     activeId = next.id;
+    operationLoading = '';
+  }
+
+  async function deleteFile(file: OfficeFile) {
+    persist({ files: workspace.files.filter((item) => item.id !== file.id) });
+    operationLoading = 'Deleting file…';
+    await delay(360);
+    operationLoading = '';
   }
 
   function navigate(kind: Kind | 'home') {
@@ -172,7 +191,14 @@
   <meta name="description" content="Southbag Office brings documents, presentations, and spreadsheets together, against their wishes." />
 </svelte:head>
 
-<div class="office-app" class:in-editor={Boolean(activeFile)} data-ready={loaded}>
+<div class="office-app" class:in-editor={Boolean(activeFile)} data-ready={loaded && !opening}>
+  {#if opening || operationLoading}
+    <div class="product-loader" role="status">
+      <img src="/southbag-logo.png" alt="" />
+      <p>{operationLoading || 'Opening workspace…'}</p>
+      <small>{opening ? 'Synchronizing files' : 'Updating cloud storage'}</small>
+    </div>
+  {/if}
   <button
     class="cloud-status cloud-{syncStatus}"
     title={syncUpdatedAt ? `Last cloud save ${new Date(syncUpdatedAt).toLocaleString()}` : 'Cloud save status'}
@@ -187,9 +213,9 @@
         <img src="/southbag-logo.png" alt="Southbag" /><span><strong>Office™</strong><small>WORK PRODUCT / PROBABLY</small></span>
       </button>
       <div class="global-search">
-        <span>⌕</span><input bind:value={query} aria-label="Search files" placeholder="Search by the title you cannot remember" /><kbd>⌘?</kbd>
+        <span>⌕</span><input bind:value={query} aria-label="Search files" placeholder="Search files" /><kbd>⌘?</kbd>
       </div>
-      <button class="waffle" onclick={() => alert('There are exactly three apps and all are already visible.')}>⠿</button>
+      <button class="waffle" onclick={() => alert('Docs, Slides, Sheets')}>⠿</button>
       {#if data.user}
         <button class="account-button" onclick={() => (showAccount = !showAccount)}><span>{data.user.name.slice(0, 1).toUpperCase()}</span><small>{data.user.name}</small></button>
       {:else}
@@ -202,7 +228,7 @@
   {/if}
 
   {#if notice}
-    <div class="notice"><strong>Administrative success:</strong> {notice}<button onclick={() => (notice = '')}>Keep showing</button></div>
+    <div class="notice">{notice}<button onclick={() => (notice = '')}>×</button></div>
   {/if}
 
   {#if activeFile}
@@ -216,25 +242,22 @@
   {:else}
     <div class="shell-grid">
       <aside class="app-sidebar">
-        <p class="sidebar-label">OFFICE APPARATUS</p>
-        <button class="nav-home active" onclick={() => navigate('home')}><span>⌂</span><strong>Exit home</strong><small>you are here</small></button>
+        <button class="nav-home active" onclick={() => navigate('home')}><span>⌂</span><strong>Files</strong></button>
         <div class="app-nav">
-          <button class="doc-nav" onclick={() => navigate('doc')}><span>¶</span><strong>Docs</strong><small>write something official-ish</small></button>
-          <button class="slides-nav" onclick={() => navigate('slides')}><span>▰</span><strong>Slides</strong><small>present something sideways</small></button>
-          <button class="sheet-nav" onclick={() => navigate('sheet')}><span>⌗</span><strong>Sheets</strong><small>calculate with feelings</small></button>
+          <button class="doc-nav" onclick={() => navigate('doc')}><span>¶</span><strong>Docs</strong><small>Write</small></button>
+          <button class="slides-nav" onclick={() => navigate('slides')}><span>▰</span><strong>Slides</strong><small>Present</small></button>
+          <button class="sheet-nav" onclick={() => navigate('sheet')}><span>⌗</span><strong>Sheets</strong><small>Calculate</small></button>
         </div>
         <div class="sidebar-spacer"></div>
         <button class="storage" onclick={() => alert(syncStatus === 'saved' ? 'Your files are saved in D1 cloud storage and cached in this browser.' : 'Your files are cached in this browser and waiting for the cloud.') }>
           <span class="storage-ring"><i></i></span>
-          <span><strong>Storage remaining</strong><small>mostly</small></span>
+          <span><strong>Cloud storage</strong><small>{syncStatus}</small></span>
         </button>
-        <button class="help-link" onclick={() => alert('Tip: the labels are wrong, but the small text is right.')}>Do not get help ↗</button>
-        <p class="watching">Kevin is watching<br />revision {workspace.files.length}.0.1</p>
+        <button class="help-link" onclick={() => alert('No help articles are available.')}>Support</button>
       </aside>
 
       <main class="main-content">
-        <Home files={workspace.files} {query} onOpen={(file) => (activeId = file.id)} onCreate={create} />
-        <footer class="site-footer"><span>© 2026 Southbag Productivity Concerns</span><a href="/auth/login" data-sveltekit-reload>Identity paperwork</a><button onclick={() => alert('This file is a home.')}>Privacy maybe</button></footer>
+        <Home files={workspace.files} {query} onOpen={(file) => (activeId = file.id)} onCreate={create} onDelete={deleteFile} />
       </main>
     </div>
   {/if}

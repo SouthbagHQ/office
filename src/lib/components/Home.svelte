@@ -6,7 +6,9 @@
   export let query: string;
   export let onOpen: (file: OfficeFile) => void;
   export let onCreate: (kind: Kind) => void;
+  export let onDelete: (file: OfficeFile) => void;
 
+  let openMenu: string | null = null;
   $: visible = files.filter((file) => file.title.toLowerCase().includes(query.toLowerCase()));
 
   function dateLabel(value: string) {
@@ -14,63 +16,66 @@
       new Date(value)
     );
   }
+
+  function remove(file: OfficeFile) {
+    openMenu = null;
+    if (confirm(`Delete “${file.title}”? This cannot be undone.`)) onDelete(file);
+  }
 </script>
 
 <section class="home-view">
-  <header class="home-header">
-    <div>
-      <p class="eyebrow">THE PRODUCTIVITY PORTAL / HOME / SOMEWHERE ELSE</p>
-      <h1>Your work is around here</h1>
-      <p class="lede">Three professional tools. One shared sense of uncertainty.</p>
-    </div>
-    <div class="status-stamp"><strong>OPERATIONAL</strong><span>probably</span></div>
-  </header>
-
-  <div class="creation-zone">
-    <p class="zone-label">Create from nothing (advanced)</p>
+  <div class="creation-zone" aria-label="Create a file">
     <button class="create-card docs" onclick={() => onCreate('doc')}>
-      <span class="paper-icon">¶</span><strong>New document</strong><small>Docs / page paperwork</small>
+      <span class="paper-icon">¶</span><strong>New document</strong><small>Docs</small>
     </button>
     <button class="create-card slides" onclick={() => onCreate('slides')}>
-      <span class="paper-icon">▱</span><strong>New presentation</strong><small>Slides / public speaking file</small>
+      <span class="paper-icon">▱</span><strong>New presentation</strong><small>Slides</small>
     </button>
     <button class="create-card sheets" onclick={() => onCreate('sheet')}>
-      <span class="paper-icon">⌗</span><strong>New spreadsheet</strong><small>Sheets / cells in captivity</small>
+      <span class="paper-icon">⌗</span><strong>New spreadsheet</strong><small>Sheets</small>
     </button>
-    <button class="template-decoy" onclick={() => alert('Templates are available on the previous page. There is no previous page.')}>Browse 0 templates →</button>
   </div>
 
-  <div class="section-heading">
-    <div>
-      <p class="eyebrow">RECENT, INCLUDING FUTURE</p>
-      <h2>Loose files</h2>
-    </div>
-    <p>{visible.length} result{visible.length === 1 ? '' : 's'} in an order</p>
+  <div class="file-controls">
+    <button onclick={() => alert('Files are already sorted by modification time.')}>↕</button>
+    <span>{visible.length}</span>
   </div>
 
   <div class="file-grid">
-    {#each visible as file, index (file.id)}
-      <button class="file-card {file.kind}" onclick={() => onOpen(file)}>
-        <span class="file-index">0{index + 1}</span>
-        <span class="file-preview">
-          {#if file.kind === 'doc'}
-            <span class="fake-lines"><i></i><i></i><i></i><i></i><i></i></span>
-          {:else if file.kind === 'slides'}
-            <span class="fake-slide"><i></i><b>{file.slides.length}</b></span>
-          {:else}
-            <span class="fake-grid">{#each Array(24) as _}<i></i>{/each}</span>
-          {/if}
-        </span>
-        <span class="file-meta">
-          <span class="kind-dot"></span>
-          <span><strong>{file.title}</strong><small>{kindLabel(file.kind)} / {dateLabel(file.modified)}</small></span>
-        </span>
-        <span class="owner">owned by {file.owner}</span>
-      </button>
+    {#each visible as file (file.id)}
+      <article class="file-card {file.kind}">
+        <button class="file-open" onclick={() => onOpen(file)} aria-label={`Open ${file.title}`}>
+          <span class="file-preview">
+            {#if file.kind === 'doc'}
+              <span class:empty={!file.content} class="fake-lines">
+                {#if file.content}<i></i><i></i><i></i><i></i><i></i>{/if}
+              </span>
+            {:else if file.kind === 'slides'}
+              <span class="fake-slide">{#if file.slides.some((slide) => slide.title || slide.body)}<i></i>{/if}</span>
+            {:else}
+              <span class:populated={Object.keys(file.cells).length > 0} class="fake-grid">{#each Array(24) as _}<i></i>{/each}</span>
+            {/if}
+          </span>
+          <span class="file-meta">
+            <span class="kind-dot"></span>
+            <span><strong>{file.title}</strong><small>{kindLabel(file.kind)} · {dateLabel(file.modified)}</small></span>
+          </span>
+        </button>
+        <button
+          class="file-menu-button"
+          aria-label={`Actions for ${file.title}`}
+          aria-expanded={openMenu === file.id}
+          onclick={() => (openMenu = openMenu === file.id ? null : file.id)}
+        >•••</button>
+        {#if openMenu === file.id}
+          <div class="file-menu">
+            <button onclick={() => remove(file)}>Delete</button>
+          </div>
+        {/if}
+      </article>
     {:else}
       <div class="empty-state">
-        <strong>No files agree with your search.</strong>
-        <p>Try searching for nothing. That usually works.</p>
+        <p>{query ? 'Nothing found' : 'No files'}</p>
       </div>
     {/each}
   </div>

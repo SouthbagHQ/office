@@ -10,15 +10,15 @@
   let zoom = 100;
   let showFind = false;
   let find = '';
-  let savedMessage = 'Saved somewhere nearby';
+  let savedMessage = 'Saved';
 
   $: plainText = file.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   $: words = plainText ? plainText.split(' ').length : 0;
 
   function updateContent() {
     onChange({ ...file, content: page.innerHTML, modified: new Date().toISOString() });
-    savedMessage = 'Saving in an emotionally complete way…';
-    window.setTimeout(() => (savedMessage = 'Saved somewhere nearby'), 500);
+    savedMessage = 'Saving…';
+    window.setTimeout(() => (savedMessage = 'Saved'), 500);
   }
 
   function command(name: string, value?: string) {
@@ -102,6 +102,6 @@
     >{@html file.content}</div>
   </div>
   <footer class="editor-status">
-    <span>PAGE 1 OF 0</span><span>{words} words / {plainText.length} suspicious characters</span><span>ENGLISH (SOUTH)</span><span class="status-grow"></span><button onclick={() => (zoom = Math.max(50, zoom - 10))}>＋</button><strong>{zoom}%</strong><button onclick={() => (zoom = Math.min(160, zoom + 10))}>−</button>
+    <span>PAGE 1 OF 1</span><span>{words} words / {plainText.length} characters</span><span>ENGLISH</span><span class="status-grow"></span><button onclick={() => (zoom = Math.max(50, zoom - 10))}>−</button><strong>{zoom}%</strong><button onclick={() => (zoom = Math.min(160, zoom + 10))}>＋</button>
   </footer>
 </section>

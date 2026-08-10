@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialWorkspace } from '../workspace';
+import { createFile, initialWorkspace } from '../workspace';
 import { parseWorkspace, rowToWorkspace } from './workspace';
 
 describe('cloud workspace validation', () => {
@@ -8,8 +8,9 @@ describe('cloud workspace validation', () => {
   });
 
   it('rejects invalid or excessively large workspaces', () => {
+    const document = createFile('doc', 'Test Employee');
     expect(parseWorkspace({ files: [{ kind: 'doc' }] })).toBeNull();
-    expect(parseWorkspace({ files: [{ ...initialWorkspace.files[0], content: 'x'.repeat(2_100_000) }] })).toBeNull();
+    expect(parseWorkspace({ files: [{ ...document, content: 'x'.repeat(2_100_000) }] })).toBeNull();
   });
 
   it('turns D1 rows into versioned workspaces', () => {

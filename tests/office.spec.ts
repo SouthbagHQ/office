@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 async function signIn(page: import('@playwright/test').Page) {
+  const identity = `e2e-${crypto.randomUUID()}@southbag.cc`;
   await page.goto('/');
   await expect(page).toHaveURL(/\/login$/);
   const logo = page.getByRole('img', { name: 'Southbag' });
@@ -8,6 +9,8 @@ async function signIn(page: import('@playwright/test').Page) {
   expect(await logo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(1000);
   await page.getByRole('link', { name: /Continue with Southbag Identity/ }).click();
   await expect(page).toHaveURL(/\/dev-idp\/authorize/);
+  await page.getByRole('textbox', { name: 'Work email' }).fill(identity);
+  await page.getByRole('textbox', { name: 'Name' }).fill('New Employee');
   await page.getByRole('button', { name: 'Authorise Office' }).click();
   await expect(page).toHaveURL(/\/(?:\?.*)?$/);
   await expect(page.locator('.office-app')).toHaveAttribute('data-ready', 'true');
@@ -23,12 +26,13 @@ test('creates and edits files across the suite', async ({ page }) => {
   expect(unauthorized.status()).toBe(401);
   await signIn(page);
   await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Your work is around here' })).toBeVisible();
+  await expect(page.getByText('No files')).toBeVisible();
   await expect(page.getByRole('button', { name: /New document/ })).toBeVisible();
 
   await page.getByRole('button', { name: /New document/ }).click();
   if (errors.length) throw new Error(`Browser console: ${errors.join(' | ')}`);
   await expect(page.getByRole('textbox', { name: 'Document title' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Document body' })).toHaveText('');
   await page.getByRole('textbox', { name: 'Document title' }).fill('Browser verified memorandum');
   await page.getByRole('button', { name: 'Back to files' }).click();
 
@@ -48,6 +52,16 @@ test('creates and edits files across the suite', async ({ page }) => {
   await page.reload();
   await expect(page.getByText('Browser verified memorandum').first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Actions for Browser verified memorandum' }).click();
+  await page.getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByText('Deleting file…')).toBeHidden();
+  await expect(page.getByText('Browser verified memorandum')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Browser verified memorandum')).toHaveCount(0);
+
   const cloud = await page.request.get('/api/workspace');
   expect(cloud.ok()).toBeTruthy();
   expect(((await cloud.json()) as { revision: number }).revision).toBeGreaterThan(0);
@@ -57,6 +71,6 @@ test('creates and edits files across the suite', async ({ page }) => {
 test('renders the intentionally unhelpful home at mobile width', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page);
-  await expect(page.getByRole('heading', { name: 'Your work is around here' })).toBeVisible();
+  await expect(page.getByText('No files')).toBeVisible();
   await expect(page.getByRole('button', { name: /New document/ })).toBeVisible();
 });

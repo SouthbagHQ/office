@@ -9,7 +9,7 @@
   const columns = Array.from({ length: 9 }, (_, index) => String.fromCharCode(65 + index));
   const rows = Array.from({ length: 18 }, (_, index) => index + 1);
   let selected = 'B2';
-  let showChart = true;
+  let showChart = Object.keys(file.cells).length > 0;
   let showRaw = false;
 
   $: selectedRaw = file.cells[selected] ?? '';
@@ -18,17 +18,6 @@
     onChange({ ...file, cells: { ...file.cells, [name]: value }, modified: new Date().toISOString() });
   }
 
-  function fillExample() {
-    onChange({
-      ...file,
-      cells: {
-        ...file.cells,
-        A8: 'Unrequested forecast', B8: 'Q1', C8: 'Q2', D8: 'Q3',
-        A9: 'Confidence', B9: '12', C9: '44', D9: '31', E9: '=SUM(B9:D9)'
-      },
-      modified: new Date().toISOString()
-    });
-  }
 </script>
 
 <section class="editor sheets-editor">
@@ -37,10 +26,10 @@
     <div class="title-stack">
       <input class="file-title-input" aria-label="Spreadsheet title" value={file.title} oninput={(event) => onChange({ ...file, title: event.currentTarget.value, modified: new Date().toISOString() })} />
       <nav class="menu-strip" aria-label="Spreadsheet menus">
-        <button onclick={() => alert('This workbook saves itself.')}>File</button><button onclick={fillExample}>Insert example</button><button onclick={() => (showRaw = !showRaw)}>{showRaw ? 'Show values' : 'Show formulas'}</button><button onclick={() => (showChart = !showChart)}>{showChart ? 'Hide chart' : 'Show chart'}</button>
+        <button onclick={() => alert('This workbook saves itself.')}>File</button><button onclick={() => alert('Select a cell to edit it.')}>Edit</button><button onclick={() => (showRaw = !showRaw)}>{showRaw ? 'Show values' : 'Show formulas'}</button><button onclick={() => (showChart = !showChart)}>{showChart ? 'Hide chart' : 'Show chart'}</button>
       </nav>
     </div>
-    <span class="save-state">◆ Changes saved before they happen</span>
+    <span class="save-state">◆ Saved</span>
     <a class="share-button sheets-share" href="mailto:?subject=Cell attachment&body=Please see cell B2 attached mentally.">Restrict access</a>
   </header>
 
@@ -89,6 +78,6 @@
     {/if}
   </div>
 
-  <div class="sheet-tabs"><button class="add-sheet" onclick={() => alert('Maximum one sheet per workbook for simplicity.')}>＋</button><button class="active">Sheet 2</button><button onclick={() => alert('Sheet 1 has been archived for being obvious.')}>Sheet 1</button><span></span><button>☷ All sheets (2 of 1)</button></div>
-  <footer class="editor-status"><span>SUM: {evaluateCell('E6', file.cells) || 'undefined'}</span><span>SELECTED: {selected}</span><span class="status-grow"></span><span>100%</span><input aria-label="Zoom" type="range" min="50" max="150" value="100" /></footer>
+  <div class="sheet-tabs"><button class="active">Sheet 1</button><span></span></div>
+  <footer class="editor-status"><span>{Object.keys(file.cells).length ? `SUM: ${evaluateCell('E6', file.cells) || '—'}` : 'READY'}</span><span>SELECTED: {selected}</span><span class="status-grow"></span><span>100%</span><input aria-label="Zoom" type="range" min="50" max="150" value="100" /></footer>
 </section>

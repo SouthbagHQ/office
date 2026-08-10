@@ -17,7 +17,7 @@
   }
 
   function addSlide() {
-    const slides = [...file.slides, { title: 'Another point was made', body: 'Click here, then overthink it', layout: 'statement' as const }];
+    const slides = [...file.slides, { title: '', body: '', layout: 'title' as const }];
     onChange({ ...file, slides, modified: new Date().toISOString() });
     selected = slides.length - 1;
   }
@@ -49,7 +49,7 @@
         <button onclick={() => alert('This presentation saves itself.')}>File</button><button onclick={duplicateSlide}>Edit</button><button onclick={cycleTheme}>Theme</button><button onclick={() => (panel = panel === 'design' ? 'nothing' : 'design')}>View</button>
       </nav>
     </div>
-    <span class="save-state">▲ Saved after modification</span>
+    <span class="save-state">▲ Saved</span>
     <button class="present-button" onclick={() => (presenting = true)}>Present ▶</button>
   </header>
 
@@ -68,7 +68,7 @@
       <button class="rail-collapse" onclick={() => alert('The sidebar cannot be hidden because you found the button.')}>›</button>
       {#each file.slides as item, index}
         <button class:active={index === selected} class="slide-thumb-button" onclick={() => (selected = index)}>
-          <span class="slide-number">{file.slides.length - index}</span>
+          <span class="slide-number">{index + 1}</span>
           <span class="mini-slide"><strong>{item.title}</strong><small>{item.body}</small></span>
         </button>
       {/each}
@@ -76,15 +76,14 @@
 
     <main class="slide-stage-wrap">
       <div class="slide-stage layout-{slide.layout}">
-        <p class="corner-label">SOUTHBAG / INTERNAL EXTERNAL</p>
         <div class="slide-accent"></div>
         <div class="slide-copy">
           <div class="slide-title" contenteditable="true" role="textbox" aria-label="Slide title" oninput={(event) => updateSlide({ title: event.currentTarget.textContent ?? '' })}>{slide.title}</div>
           <div class="slide-body" contenteditable="true" role="textbox" aria-label="Slide body" oninput={(event) => updateSlide({ body: event.currentTarget.textContent ?? '' })}>{slide.body}</div>
         </div>
-        <span class="slide-folio">{selected + 1} / {file.slides.length + 7}</span>
+        <span class="slide-folio">{selected + 1} / {file.slides.length}</span>
       </div>
-      <label class="speaker-notes">Audience-visible speaker notes
+      <label class="speaker-notes">Speaker notes
         <textarea value={file.notes} oninput={(event) => onChange({ ...file, notes: event.currentTarget.value, modified: new Date().toISOString() })}></textarea>
       </label>
     </main>
@@ -105,9 +104,9 @@
 
   {#if presenting}
     <div class="presentation-overlay" role="dialog" aria-modal="true" aria-label="Presentation mode">
-      <button class="close-presentation" onclick={() => (presenting = false)}>Continue presentation ×</button>
+      <button class="close-presentation" onclick={() => (presenting = false)}>Exit presentation ×</button>
       <div class="slide-stage layout-{slide.layout}">
-        <p class="corner-label">SOUTHBAG / PRESENTLY</p><div class="slide-accent"></div>
+        <div class="slide-accent"></div>
         <div class="slide-copy"><div class="slide-title">{slide.title}</div><div class="slide-body">{slide.body}</div></div>
         <span class="slide-folio">{selected + 1}</span>
       </div>
