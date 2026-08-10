@@ -16,6 +16,7 @@ body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: hidden; backg
 button, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { color: inherit; }
+img[src="/southbag-logo.png"] { animation:none !important; }
 
 @keyframes ambient-text {
   0%,100% { text-shadow:1px 1px 2px rgba(0,0,0,.27),2px 2px 4px rgba(0,0,0,.12); }
@@ -98,7 +99,7 @@ button { color: inherit; }
 .cloud-saved i { background: #2e704e; }.cloud-saving i,.cloud-loading i { background: #d89b28; }.cloud-offline i { background: #777; }.cloud-error i { background: #c9362b; }
 .global-header { height: 82px; display: flex; align-items: center; gap: 18px; padding: 12px 24px; border-bottom: 1px solid #aaa89f; background: rgba(251,250,246,.94); position: sticky; top: 0; z-index: 20; box-shadow: 0 4px 18px rgba(0,0,0,.08); animation:soft-shadow-wander 16s linear infinite; }
 .brand { display: flex; align-items: center; gap: 8px; width: 310px; border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }
-.brand img { width: 185px; height: 58px; object-fit: fill; box-shadow: 0 5px 14px rgba(0,0,0,.17); animation:paper-wobble 23s linear infinite,color-meander 31s linear infinite; }
+.brand img { width: 185px; height: 58px; object-fit: fill; box-shadow: 0 5px 14px rgba(0,0,0,.17); }
 .brand strong { display: block; font: 700 22px/1 'Times New Roman', serif; letter-spacing: -1px; }
 .brand small { display: block; margin-top: 5px; font: 700 8px/1.2 Arial, sans-serif; letter-spacing: 1.7px; }
 .global-search { flex: 1; max-width: 720px; height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 13px; margin: 0 auto; border: 2px inset #ddd; background: white; transform: skew(-1deg); box-shadow: 0 4px 14px rgba(0,0,0,.1); }
@@ -155,7 +156,7 @@ kbd { padding: 3px 6px; border: 1px solid #aaa; box-shadow: 0 2px 5px rgba(0,0,0
 .empty-state.search-error { background:#ddd;color:#111;animation:quiet-blink 8s linear infinite,soft-shadow-wander 13s linear infinite; }
 
 .product-loader { position:fixed;inset:0;z-index:2000;display:grid;place-content:center;justify-items:center;gap:12px;background:#f1f0eb; }
-.product-loader img { width:310px;height:92px;object-fit:fill;animation:paper-wobble 7s linear infinite,color-meander 11s linear infinite; }
+.product-loader img { width:310px;height:92px;object-fit:fill; }
 .product-loader p { min-width:280px;margin:0;padding:12px;background:#fff;text-align:center;font:18px "Times New Roman"; }
 .product-loader small { font:9px monospace; }
 
