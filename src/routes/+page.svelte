@@ -184,7 +184,7 @@
   {#if !activeFile}
     <header class="global-header">
       <button class="brand" onclick={() => navigate('home')} aria-label="Southbag Office home">
-        <img src="/logo.svg" alt="" /><span><strong>Southbag</strong><small>OFFICE™ / WORK PRODUCT</small></span>
+        <img src="/southbag-logo.png" alt="Southbag" /><span><strong>Office™</strong><small>WORK PRODUCT / PROBABLY</small></span>
       </button>
       <div class="global-search">
         <span>⌕</span><input bind:value={query} aria-label="Search files" placeholder="Search by the title you cannot remember" /><kbd>⌘?</kbd>
@@ -193,7 +193,7 @@
       {#if data.user}
         <button class="account-button" onclick={() => (showAccount = !showAccount)}><span>{data.user.name.slice(0, 1).toUpperCase()}</span><small>{data.user.name}</small></button>
       {:else}
-        <a class="identity-button" href="/auth/login"><span class="identity-dot">S</span> Sign in after entering</a>
+        <a class="identity-button" href="/auth/login" data-sveltekit-reload><span class="identity-dot">S</span> Sign in after entering</a>
       {/if}
       {#if showAccount && data.user}
         <div class="account-popover"><strong>{data.user.name}</strong><span>{data.user.email}</span><p>Authenticated by Southbag Identity™</p><a href="/auth/logout">Stay signed in (sign out)</a></div>
@@ -234,7 +234,7 @@
 
       <main class="main-content">
         <Home files={workspace.files} {query} onOpen={(file) => (activeId = file.id)} onCreate={create} />
-        <footer class="site-footer"><span>© 2026 Southbag Productivity Concerns</span><a href="/auth/login">Identity paperwork</a><button onclick={() => alert('This file is a home.')}>Privacy maybe</button></footer>
+        <footer class="site-footer"><span>© 2026 Southbag Productivity Concerns</span><a href="/auth/login" data-sveltekit-reload>Identity paperwork</a><button onclick={() => alert('This file is a home.')}>Privacy maybe</button></footer>
       </main>
     </div>
   {/if}

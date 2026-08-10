@@ -3,6 +3,9 @@ import { expect, test } from '@playwright/test';
 async function signIn(page: import('@playwright/test').Page) {
   await page.goto('/');
   await expect(page).toHaveURL(/\/login$/);
+  const logo = page.getByRole('img', { name: 'Southbag' });
+  await expect(logo).toBeVisible();
+  expect(await logo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(1000);
   await page.getByRole('link', { name: /Continue with Southbag Identity/ }).click();
   await expect(page).toHaveURL(/\/dev-idp\/authorize/);
   await page.getByRole('button', { name: 'Authorise Office' }).click();

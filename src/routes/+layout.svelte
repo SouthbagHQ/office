@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-  <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+  <link rel="icon" href="/southbag-logo.png" type="image/png" />
 </svelte:head>
 
 {@render children()}
