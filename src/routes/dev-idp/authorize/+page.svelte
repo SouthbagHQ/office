@@ -11,9 +11,9 @@
   <form method="post">
     <input type="hidden" name="oauthQuery" value={data.oauthQuery} />
     <strong>Sign in to test Southbag Office</strong>
-    <label>Work email<input name="email" type="email" value="employee@southbag.cc" autocomplete="username" required /></label>
-    <label>Name<input name="name" value="Test Employee" autocomplete="name" required /></label>
-    <label>Password<input name="password" type="password" value="southbag" autocomplete="current-password" required /></label>
+    <label>Work email<input name="email" type="email" value={form?.email ?? ''} autocomplete="username" required /></label>
+    <label>Name<input name="name" value={form?.name ?? ''} autocomplete="name" required /></label>
+    <label>Password<input name="password" type="password" autocomplete="current-password" required /></label>
     {#if form?.message}<p class="idp-error">{form.message}</p>{/if}
     <button>Authorise Office</button>
     <small>Development credential: employee@southbag.cc / southbag</small>

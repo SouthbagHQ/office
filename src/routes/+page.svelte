@@ -226,7 +226,7 @@
         <a class="identity-button" href="/auth/login" data-sveltekit-reload><span class="identity-dot">S</span> Sign in after entering</a>
       {/if}
       {#if showAccount && data.user}
-        <div class="account-popover"><strong>{data.user.name}</strong><span>{data.user.email}</span><p>Authenticated by Southbag Identity™</p><a href="/auth/logout">Stay signed in (sign out)</a></div>
+        <div class="account-popover"><strong>{data.user.name}</strong><span>{data.user.email}</span><p>Authenticated by Southbag Identity™</p><a href="/auth/logout" data-sveltekit-reload>Stay signed in (sign out)</a></div>
       {/if}
     </header>
   {/if}

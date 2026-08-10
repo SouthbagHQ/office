@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EditableText from './EditableText.svelte';
   import type { Slide, SlideFile } from '$lib/workspace';
 
   export let file: SlideFile;
@@ -24,7 +25,7 @@
 
   function duplicateSlide() {
     const slides = [...file.slides];
-    slides.splice(selected, 0, { ...slides[selected], title: `${slides[selected].title} copy maybe` });
+    slides.splice(selected, 0, { ...slides[selected] });
     onChange({ ...file, slides, modified: new Date().toISOString() });
   }
 
@@ -77,10 +78,12 @@
     <main class="slide-stage-wrap">
       <div class="slide-stage layout-{slide.layout}">
         <div class="slide-accent"></div>
-        <div class="slide-copy">
-          <div class="slide-title" contenteditable="true" role="textbox" aria-label="Slide title" oninput={(event) => updateSlide({ title: event.currentTarget.textContent ?? '' })}>{slide.title}</div>
-          <div class="slide-body" contenteditable="true" role="textbox" aria-label="Slide body" oninput={(event) => updateSlide({ body: event.currentTarget.textContent ?? '' })}>{slide.body}</div>
-        </div>
+        {#key selected}
+          <div class="slide-copy">
+            <EditableText value={slide.title} className="slide-title" label="Slide title" onChange={(title) => updateSlide({ title })} />
+            <EditableText value={slide.body} className="slide-body" label="Slide body" onChange={(body) => updateSlide({ body })} />
+          </div>
+        {/key}
         <span class="slide-folio">{selected + 1} / {file.slides.length}</span>
       </div>
       <label class="speaker-notes">Speaker notes

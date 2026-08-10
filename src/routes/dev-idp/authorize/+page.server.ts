@@ -37,7 +37,9 @@ export const actions: Actions = {
     const oauthQuery = form.get('oauthQuery')?.toString() ?? '';
     const oauthUrl = new URL(`/dev-idp/authorize?${oauthQuery}`, url.origin);
     const parameters = oauthParameters(oauthUrl);
-    if (!validRequest(parameters, url.origin)) return fail(400, { message: 'OAuth request expired incorrectly.' });
+    if (!validRequest(parameters, url.origin)) {
+      return fail(400, { message: 'OAuth request expired incorrectly.', email: '', name: '' });
+    }
 
     const email = form.get('email')?.toString().trim().toLowerCase() ?? '';
     const name = form.get('name')?.toString().trim() || 'Development Employee';

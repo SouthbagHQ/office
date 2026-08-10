@@ -6,6 +6,7 @@
   export let onChange: (file: DocumentFile) => void;
   export let onExit: () => void;
 
+  const initialContent = file.content;
   let page: HTMLDivElement;
   let zoom = 100;
   let showFind = false;
@@ -99,7 +100,7 @@
       aria-multiline="true"
       aria-label="Document body"
       oninput={updateContent}
-    >{@html file.content}</div>
+    >{@html initialContent}</div>
   </div>
   <footer class="editor-status">
     <span>PAGE 1 OF 1</span><span>{words} words / {plainText.length} characters</span><span>ENGLISH</span><span class="status-grow"></span><button onclick={() => (zoom = Math.max(50, zoom - 10))}>−</button><strong>{zoom}%</strong><button onclick={() => (zoom = Math.min(160, zoom + 10))}>＋</button>
