@@ -1,10 +1,12 @@
 <script lang="ts">
+  import type { DialogRequest } from '$lib/dialog';
   import type { SheetFile } from '$lib/workspace';
   import { cellName, evaluateCell } from '$lib/sheet';
 
   export let file: SheetFile;
   export let onChange: (file: SheetFile) => void;
   export let onExit: () => void;
+  export let onDialog: (request: DialogRequest) => void;
 
   const columns = Array.from({ length: 9 }, (_, index) => String.fromCharCode(65 + index));
   const rows = Array.from({ length: 18 }, (_, index) => index + 1);
@@ -26,7 +28,7 @@
     <div class="title-stack">
       <input class="file-title-input" aria-label="Spreadsheet title" value={file.title} oninput={(event) => onChange({ ...file, title: event.currentTarget.value, modified: new Date().toISOString() })} />
       <nav class="menu-strip" aria-label="Spreadsheet menus">
-        <button onclick={() => alert('This workbook saves itself.')}>File</button><button onclick={() => alert('Select a cell to edit it.')}>Edit</button><button onclick={() => (showRaw = !showRaw)}>{showRaw ? 'Show values' : 'Show formulas'}</button><button onclick={() => (showChart = !showChart)}>{showChart ? 'Hide chart' : 'Show chart'}</button>
+        <button onclick={() => onDialog({ title: 'File', message: 'This spreadsheet saves automatically to your cloud workspace.' })}>File</button><button onclick={() => onDialog({ title: 'Edit cells', message: 'Select a cell, then type in the cell or formula bar.' })}>Edit</button><button onclick={() => (showRaw = !showRaw)}>{showRaw ? 'Show values' : 'Show formulas'}</button><button onclick={() => (showChart = !showChart)}>{showChart ? 'Hide chart' : 'Show chart'}</button>
       </nav>
     </div>
     <span class="save-state">◆ Saved</span>
@@ -34,10 +36,10 @@
   </header>
 
   <div class="toolbar sheet-toolbar">
-    <button onclick={() => alert('Printed to the cloud. No printer was involved.')}>▣</button><button onclick={() => alert('Undo is in the Edit menu, which is called Export inward.')}>↷</button>
+    <button onclick={() => onDialog({ title: 'Print', message: 'Use the browser print command to print this spreadsheet.' })}>▣</button><button onclick={() => onDialog({ title: 'Undo', message: 'Undo is not available for the current cell.' })}>↷</button>
     <select aria-label="Format"><option>Money without currency</option><option>Text as date</option><option>Number-shaped text</option></select>
     <button onclick={() => setCell(selected, `$${selectedRaw}`)}>$</button><button onclick={() => setCell(selected, `${selectedRaw}%`)}>%</button><button onclick={() => setCell(selected, `=${selectedRaw || '0'}*2`)}>.0←</button>
-    <span class="toolbar-divider"></span><button class="tiny-action" onclick={() => alert('Borders are already everywhere.')}>remove more borders</button><button onclick={() => (showChart = true)}>T</button>
+    <span class="toolbar-divider"></span><button class="tiny-action" onclick={() => onDialog({ title: 'Cell formatting', message: 'Cell borders are hidden in this workspace.' })}>remove more borders</button><button onclick={() => (showChart = true)}>T</button>
   </div>
 
   <div class="formula-bar">

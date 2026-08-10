@@ -30,8 +30,13 @@ async function openSecondPage(context: BrowserContext) {
 
 test('creates and edits files across the suite', async ({ page }) => {
   const errors: string[] = [];
+  const nativeDialogs: string[] = [];
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
+  });
+  page.on('dialog', (dialog) => {
+    nativeDialogs.push(dialog.type());
+    void dialog.dismiss();
   });
 
   const unauthorized = await page.request.get('/api/workspace');
@@ -41,6 +46,9 @@ test('creates and edits files across the suite', async ({ page }) => {
   await expect(page.getByText('No files')).toBeVisible();
   expect((await (await page.request.get('/api/workspace')).json()).workspace.files).toEqual([]);
   await expect(page.getByRole('button', { name: /New document/ })).toBeVisible();
+  await page.locator('.waffle').click();
+  await expect(page.getByRole('dialog', { name: 'Southbag Office' })).toBeVisible();
+  await page.getByRole('button', { name: 'OK' }).click();
 
   const openingDocument = page.getByText('Opening document…');
   await page.getByRole('button', { name: /New document/ }).click({ noWaitAfter: true });
@@ -100,9 +108,14 @@ test('creates and edits files across the suite', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: 'Cell B2', exact: true })).toHaveValue('5');
   await page.getByRole('button', { name: 'Back to files' }).click();
 
-  page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Actions for Browser verified memorandum' }).click();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Delete file?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('button', { name: 'Open Browser verified memorandum' })).toBeVisible();
+  await page.getByRole('button', { name: 'Actions for Browser verified memorandum' }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Delete file?' }).getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByText('Deleting file…')).toBeHidden();
   await expect(page.getByText('Browser verified memorandum')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
@@ -113,6 +126,7 @@ test('creates and edits files across the suite', async ({ page }) => {
   expect(cloud.ok()).toBeTruthy();
   expect(((await cloud.json()) as { revision: number }).revision).toBeGreaterThan(0);
   expect(errors).toEqual([]);
+  expect(nativeDialogs).toEqual([]);
 });
 
 test('requires authentication, rejects bad development credentials, and isolates accounts', async ({ browser }) => {
@@ -168,9 +182,9 @@ test('keeps a deletion when an older tab later saves', async ({ page, context })
   const olderTab = await openSecondPage(context);
   await olderTab.getByRole('button', { name: 'Open Delete me in tab one' }).click();
 
-  page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Actions for Delete me in tab one' }).click();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Delete file?' }).getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
 
   await olderTab.getByRole('textbox', { name: 'Document title' }).fill('Older tab tried to restore me');
@@ -179,6 +193,21 @@ test('keeps a deletion when an older tab later saves', async ({ page, context })
   await olderTab.reload();
   await expect(olderTab.getByText('No files')).toBeVisible();
   await expect(olderTab.getByText('Older tab tried to restore me')).toHaveCount(0);
+});
+
+test('creates a document when randomUUID is unavailable on an HTTP origin', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(Crypto.prototype, 'randomUUID', { configurable: true, value: undefined });
+  });
+  await signIn(page, newIdentity('insecure-origin'));
+  await page.getByRole('button', { name: /New document/ }).click();
+  await expect(page.getByRole('textbox', { name: 'Document title' })).toHaveValue('Untitled document');
+  await page.getByRole('textbox', { name: 'Document body' }).pressSequentially('Created over HTTP');
+  await expect(page.getByRole('textbox', { name: 'Document body' })).toHaveText('Created over HTTP');
+  await page.getByRole('button', { name: 'Back to files' }).click();
+  await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
+  const cloud = await page.request.get('/api/workspace');
+  expect(((await cloud.json()) as { workspace: { files: unknown[] } }).workspace.files).toHaveLength(1);
 });
 
 test('renders the intentionally unhelpful home at mobile width', async ({ page }) => {

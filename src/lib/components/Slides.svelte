@@ -1,10 +1,12 @@
 <script lang="ts">
   import EditableText from './EditableText.svelte';
+  import type { DialogRequest } from '$lib/dialog';
   import type { Slide, SlideFile } from '$lib/workspace';
 
   export let file: SlideFile;
   export let onChange: (file: SlideFile) => void;
   export let onExit: () => void;
+  export let onDialog: (request: DialogRequest) => void;
 
   let selected = 0;
   let presenting = false;
@@ -30,7 +32,10 @@
   }
 
   function removeSlide() {
-    if (file.slides.length === 1) return alert('A presentation must contain at least one regret.');
+    if (file.slides.length === 1) {
+      onDialog({ title: 'Slide required', message: 'A presentation must contain at least one slide.' });
+      return;
+    }
     const slides = file.slides.filter((_, index) => index !== selected);
     onChange({ ...file, slides, modified: new Date().toISOString() });
     selected = Math.max(0, selected - 1);
@@ -47,7 +52,7 @@
     <div class="title-stack">
       <input class="file-title-input" aria-label="Presentation title" value={file.title} oninput={(event) => onChange({ ...file, title: event.currentTarget.value, modified: new Date().toISOString() })} />
       <nav class="menu-strip" aria-label="Presentation menus">
-        <button onclick={() => alert('This presentation saves itself.')}>File</button><button onclick={duplicateSlide}>Edit</button><button onclick={cycleTheme}>Theme</button><button onclick={() => (panel = panel === 'design' ? 'nothing' : 'design')}>View</button>
+        <button onclick={() => onDialog({ title: 'File', message: 'This presentation saves automatically to your cloud workspace.' })}>File</button><button onclick={duplicateSlide}>Edit</button><button onclick={cycleTheme}>Theme</button><button onclick={() => (panel = panel === 'design' ? 'nothing' : 'design')}>View</button>
       </nav>
     </div>
     <span class="save-state">▲ Saved</span>
@@ -61,12 +66,12 @@
     <button onclick={() => updateSlide({ layout: 'title' })}>Layout B</button>
     <button onclick={() => updateSlide({ layout: 'split' })}>Single column</button>
     <button class="tiny-action" onclick={cycleTheme}>apply tasteful design</button>
-    <button onclick={() => alert('Animations have been replaced with a brief pause.')}>Motion sickness</button>
+    <button onclick={() => onDialog({ title: 'Transitions', message: 'No slide transitions are currently applied.' })}>Motion sickness</button>
   </div>
 
   <div class="slides-workspace">
     <aside class="slide-rail" aria-label="Slide thumbnails">
-      <button class="rail-collapse" onclick={() => alert('The sidebar cannot be hidden because you found the button.')}>›</button>
+      <button class="rail-collapse" onclick={() => onDialog({ title: 'Slide rail', message: 'Slide thumbnails remain visible while editing.' })}>›</button>
       {#each file.slides as item, index}
         <button class:active={index === selected} class="slide-thumb-button" onclick={() => (selected = index)}>
           <span class="slide-number">{index + 1}</span>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { DialogRequest } from '$lib/dialog';
   import type { Kind, OfficeFile } from '$lib/workspace';
   import { kindLabel } from '$lib/workspace';
 
@@ -7,9 +8,13 @@
   export let onOpen: (file: OfficeFile) => void;
   export let onCreate: (kind: Kind) => void;
   export let onDelete: (file: OfficeFile) => void;
+  export let onDialog: (request: DialogRequest) => void;
 
   let openMenu: string | null = null;
-  $: visible = files.filter((file) => file.title.toLowerCase().includes(query.toLowerCase()));
+  let ascending = false;
+  $: visible = files
+    .filter((file) => file.title.toLowerCase().includes(query.toLowerCase()))
+    .sort((left, right) => (ascending ? 1 : -1) * (new Date(left.modified).getTime() - new Date(right.modified).getTime()));
 
   function dateLabel(value: string) {
     return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(
@@ -19,7 +24,13 @@
 
   function remove(file: OfficeFile) {
     openMenu = null;
-    if (confirm(`Delete “${file.title}”? This cannot be undone.`)) onDelete(file);
+    onDialog({
+      title: 'Delete file?',
+      message: `“${file.title}” will be permanently removed from cloud storage.`,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      onConfirm: () => onDelete(file)
+    });
   }
 </script>
 
@@ -37,7 +48,7 @@
   </div>
 
   <div class="file-controls">
-    <button onclick={() => alert('Files are already sorted by modification time.')}>↕</button>
+    <button aria-label={ascending ? 'Newest first' : 'Oldest first'} onclick={() => (ascending = !ascending)}>↕</button>
     <span>{visible.length}</span>
   </div>
 

@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { mergeWorkspaces, type CloudWorkspace } from '$lib/cloud';
+  import AppDialog from '$lib/components/AppDialog.svelte';
   import Docs from '$lib/components/Docs.svelte';
   import Home from '$lib/components/Home.svelte';
   import Sheets from '$lib/components/Sheets.svelte';
   import Slides from '$lib/components/Slides.svelte';
+  import type { DialogRequest } from '$lib/dialog';
   import { createFile, initialWorkspace, type Kind, type OfficeFile, type Workspace } from '$lib/workspace';
   import type { PageData } from './$types';
 
@@ -24,6 +26,7 @@
   let saveTimer: number | undefined;
   let pendingWorkspace: Workspace | null = null;
   let saveInFlight = false;
+  let dialogRequest: DialogRequest | null = null;
 
   $: activeFile = workspace.files.find((file) => file.id === activeId) ?? null;
 
@@ -188,6 +191,12 @@
     if (existing) activeId = existing.id;
     else create(kind);
   }
+
+  function closeDialog(confirmed: boolean) {
+    const request = dialogRequest;
+    dialogRequest = null;
+    if (confirmed) request?.onConfirm?.();
+  }
 </script>
 
 <svelte:head>
@@ -196,6 +205,9 @@
 </svelte:head>
 
 <div class="office-app" class:in-editor={Boolean(activeFile)} data-ready={loaded && !opening}>
+  {#if dialogRequest}
+    <AppDialog request={dialogRequest} onClose={closeDialog} />
+  {/if}
   {#if opening || operationLoading}
     <div class="product-loader" role="status">
       <img src="/southbag-logo.png" alt="" />
@@ -219,7 +231,7 @@
       <div class="global-search">
         <span>⌕</span><input bind:value={query} aria-label="Search files" placeholder="Search files" /><kbd>⌘?</kbd>
       </div>
-      <button class="waffle" onclick={() => alert('Docs, Slides, Sheets')}>⠿</button>
+      <button class="waffle" onclick={() => (dialogRequest = { title: 'Southbag Office', message: 'Docs, Slides, and Sheets are available from the left side.' })}>⠿</button>
       {#if data.user}
         <button class="account-button" onclick={() => (showAccount = !showAccount)}><span>{data.user.name.slice(0, 1).toUpperCase()}</span><small>{data.user.name}</small></button>
       {:else}
@@ -237,11 +249,11 @@
 
   {#if activeFile}
     {#if activeFile.kind === 'doc'}
-      <Docs file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} />
+      <Docs file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} />
     {:else if activeFile.kind === 'slides'}
-      <Slides file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} />
+      <Slides file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} />
     {:else}
-      <Sheets file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} />
+      <Sheets file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} />
     {/if}
   {:else}
     <div class="shell-grid">
@@ -253,15 +265,15 @@
           <button class="sheet-nav" onclick={() => navigate('sheet')}><span>⌗</span><strong>Sheets</strong><small>Calculate</small></button>
         </div>
         <div class="sidebar-spacer"></div>
-        <button class="storage" onclick={() => alert(syncStatus === 'saved' ? 'Your files are saved in D1 cloud storage and cached in this browser.' : 'Your files are cached in this browser and waiting for the cloud.') }>
+        <button class="storage" onclick={() => (dialogRequest = { title: 'Cloud storage', message: syncStatus === 'saved' ? 'Your files are saved in D1 and cached in this browser.' : 'Your files are cached in this browser and waiting for the cloud.' })}>
           <span class="storage-ring"><i></i></span>
           <span><strong>Cloud storage</strong><small>{syncStatus}</small></span>
         </button>
-        <button class="help-link" onclick={() => alert('No help articles are available.')}>Support</button>
+        <button class="help-link" onclick={() => (dialogRequest = { title: 'Support', message: 'Create a file, open it, and begin typing. Changes save automatically.' })}>Support</button>
       </aside>
 
       <main class="main-content">
-        <Home files={workspace.files} {query} onOpen={(file) => (activeId = file.id)} onCreate={create} onDelete={deleteFile} />
+        <Home files={workspace.files} {query} onOpen={(file) => (activeId = file.id)} onCreate={create} onDelete={deleteFile} onDialog={(request) => (dialogRequest = request)} />
       </main>
     </div>
   {/if}

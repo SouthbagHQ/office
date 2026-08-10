@@ -1,10 +1,12 @@
 <script lang="ts">
+  import type { DialogRequest } from '$lib/dialog';
   import type { DocumentFile } from '$lib/workspace';
   import { tick } from 'svelte';
 
   export let file: DocumentFile;
   export let onChange: (file: DocumentFile) => void;
   export let onExit: () => void;
+  export let onDialog: (request: DialogRequest) => void;
 
   const initialContent = file.content;
   let page: HTMLDivElement;
@@ -50,10 +52,10 @@
         oninput={(event) => onChange({ ...file, title: event.currentTarget.value, modified: new Date().toISOString() })}
       />
       <nav class="menu-strip" aria-label="Document menus">
-        <button onclick={() => alert('File is already here and saving automatically.')}>File</button>
+        <button onclick={() => onDialog({ title: 'File', message: 'This document saves automatically to your cloud workspace.' })}>File</button>
         <button onclick={() => command('undo')}>Edit</button>
         <button onclick={locate}>Find</button>
-        <button onclick={() => alert('Insert has been inserted into the menu.')}>Insert</button>
+        <button onclick={() => onDialog({ title: 'Insert', message: 'Choose a formatting control from the toolbar.' })}>Insert</button>
         <button onclick={() => (zoom = zoom === 100 ? 82 : 100)}>View</button>
       </nav>
     </div>
@@ -77,7 +79,7 @@
     <button onclick={() => command('underline')} title="Underline">U̲</button>
     <button onclick={() => command('insertUnorderedList')} title="Bulleted list">⋮≡</button>
     <button class="tiny-action" onclick={() => command('justifyCenter')}>center legally</button>
-    <button class="toolbar-help" onclick={() => alert('For help, close this message and continue guessing.')}>?</button>
+    <button class="toolbar-help" onclick={() => onDialog({ title: 'Document help', message: 'Type on the page. Changes save automatically.' })}>?</button>
   </div>
 
   {#if showFind}

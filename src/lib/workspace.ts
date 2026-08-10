@@ -37,9 +37,19 @@ export const initialWorkspace: Workspace = {
   files: []
 };
 
+function uniqueId() {
+  const browserCrypto = globalThis.crypto as Crypto & { randomUUID?: () => string };
+  if (typeof browserCrypto?.randomUUID === 'function') return browserCrypto.randomUUID();
+  if (typeof browserCrypto?.getRandomValues === 'function') {
+    const bytes = browserCrypto.getRandomValues(new Uint8Array(16));
+    return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 export function createFile(kind: Kind, owner = 'You'): OfficeFile {
   const modified = new Date().toISOString();
-  const common = { id: `${kind}-${crypto.randomUUID()}`, modified, owner };
+  const common = { id: `${kind}-${uniqueId()}`, modified, owner };
   if (kind === 'doc') {
     return { ...common, kind, title: 'Untitled document', content: '' };
   }
