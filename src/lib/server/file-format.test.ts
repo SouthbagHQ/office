@@ -27,4 +27,9 @@ describe('Southbag encrypted file format', () => {
   it('requires a 256-bit base64 key', async () => {
     await expect(encryptSouthbagFile(createFile('doc'), btoa('short'))).rejects.toThrow(/exactly 32/);
   });
+
+  it('refuses to package a presentation that would crash the editor', async () => {
+    const presentation = { ...createFile('slides'), slides: [] };
+    await expect(encryptSouthbagFile(presentation, key)).rejects.toThrow(/valid Southbag Office file/);
+  });
 });

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DialogRequest } from '$lib/dialog';
+  import { sanitizeDocumentHtml } from '$lib/document-html';
   import type { DocumentFile } from '$lib/workspace';
   import { tick } from 'svelte';
 
@@ -9,7 +10,7 @@
   export let onDialog: (request: DialogRequest) => void;
   export let onExport: (file: DocumentFile) => void;
 
-  const initialContent = file.content;
+  const initialContent = sanitizeDocumentHtml(file.content);
   let page: HTMLDivElement;
   let zoom = 100;
   let showFind = false;
@@ -20,9 +21,29 @@
   $: words = plainText ? plainText.split(' ').length : 0;
 
   function updateContent() {
-    onChange({ ...file, content: page.innerHTML, modified: new Date().toISOString() });
+    const content = sanitizeDocumentHtml(page.innerHTML);
+    if (content !== page.innerHTML) page.innerHTML = content;
+    onChange({ ...file, content, modified: new Date().toISOString() });
     savedMessage = 'Saving…';
     window.setTimeout(() => (savedMessage = 'Saved'), 500);
+  }
+
+  function insertTransferredContent(transfer: DataTransfer | null) {
+    const richContent = transfer?.getData('text/html') ?? '';
+    if (richContent) document.execCommand('insertHTML', false, sanitizeDocumentHtml(richContent));
+    else document.execCommand('insertText', false, transfer?.getData('text/plain') ?? '');
+    updateContent();
+  }
+
+  function pasteContent(event: ClipboardEvent) {
+    event.preventDefault();
+    insertTransferredContent(event.clipboardData);
+  }
+
+  function dropContent(event: DragEvent) {
+    event.preventDefault();
+    page.focus();
+    insertTransferredContent(event.dataTransfer);
   }
 
   function command(name: string, value?: string) {
@@ -100,9 +121,12 @@
       bind:this={page}
       contenteditable="true"
       role="textbox"
+      tabindex="0"
       aria-multiline="true"
       aria-label="Document body"
       oninput={updateContent}
+      onpaste={pasteContent}
+      ondrop={dropContent}
     >{@html initialContent}</div>
   </div>
   <footer class="editor-status">
