@@ -156,20 +156,24 @@
   }
 
   function updateFile(nextFile: OfficeFile) {
-    persist({ files: workspace.files.map((file) => (file.id === nextFile.id ? nextFile : file)) });
+    persist({ ...workspace, files: workspace.files.map((file) => (file.id === nextFile.id ? nextFile : file)) });
   }
 
   async function create(kind: Kind) {
     operationLoading = kind === 'doc' ? 'Opening document…' : kind === 'slides' ? 'Opening presentation…' : 'Opening spreadsheet…';
     await delay(420);
     const next = createFile(kind, data.user?.name ?? 'You');
-    persist({ files: [next, ...workspace.files] });
+    persist({ ...workspace, files: [next, ...workspace.files] });
     activeId = next.id;
     operationLoading = '';
   }
 
   async function deleteFile(file: OfficeFile) {
-    persist({ files: workspace.files.filter((item) => item.id !== file.id) });
+    persist({
+      ...workspace,
+      files: workspace.files.filter((item) => item.id !== file.id),
+      deletedIds: [...new Set([...(workspace.deletedIds ?? []), file.id])]
+    });
     operationLoading = 'Deleting file…';
     await delay(360);
     operationLoading = '';

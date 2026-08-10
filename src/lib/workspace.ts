@@ -31,7 +31,7 @@ export type SheetFile = {
 };
 
 export type OfficeFile = DocumentFile | SlideFile | SheetFile;
-export type Workspace = { files: OfficeFile[] };
+export type Workspace = { files: OfficeFile[]; deletedIds?: string[] };
 
 export const initialWorkspace: Workspace = {
   files: []

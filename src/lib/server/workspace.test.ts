@@ -11,6 +11,7 @@ describe('cloud workspace validation', () => {
     const document = createFile('doc', 'Test Employee');
     expect(parseWorkspace({ files: [{ kind: 'doc' }] })).toBeNull();
     expect(parseWorkspace({ files: [{ ...document, content: 'x'.repeat(2_100_000) }] })).toBeNull();
+    expect(parseWorkspace({ files: [], deletedIds: [42] })).toBeNull();
   });
 
   it('turns D1 rows into versioned workspaces', () => {

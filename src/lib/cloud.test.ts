@@ -12,4 +12,11 @@ describe('workspace conflict merge', () => {
     expect(merged.files).toHaveLength(2);
     expect(merged.files.find((file) => file.id === base.id)?.title).toBe('newer');
   });
+
+  it('does not resurrect a deleted file during a cloud conflict', () => {
+    const deleted = createFile('doc', 'Test Employee') as DocumentFile;
+    const merged = mergeWorkspaces({ files: [], deletedIds: [deleted.id] }, { files: [deleted] });
+    expect(merged.files).toEqual([]);
+    expect(merged.deletedIds).toContain(deleted.id);
+  });
 });

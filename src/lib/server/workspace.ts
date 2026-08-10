@@ -11,6 +11,12 @@ export function parseWorkspace(value: unknown): Workspace | null {
   if (!value || typeof value !== 'object' || !Array.isArray((value as Workspace).files)) return null;
   const workspace = value as Workspace;
   if (workspace.files.length > 250) return null;
+  if (
+    workspace.deletedIds !== undefined &&
+    (!Array.isArray(workspace.deletedIds) ||
+      workspace.deletedIds.length > 1000 ||
+      !workspace.deletedIds.every((id) => typeof id === 'string' && id.length <= 160))
+  ) return null;
 
   for (const file of workspace.files) {
     if (!file || typeof file !== 'object') return null;
