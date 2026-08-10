@@ -11,7 +11,9 @@ describe('office session cookie', () => {
 
   it('rejects tampering and the wrong secret', async () => {
     const cookie = await encodeSession(user, secret);
-    expect(await decodeSession(`${cookie.slice(0, -1)}x`, secret)).toBeNull();
+    const [payload, signature] = cookie.split('.');
+    const changedSignature = `${signature[0] === 'a' ? 'b' : 'a'}${signature.slice(1)}`;
+    expect(await decodeSession(`${payload}.${changedSignature}`, secret)).toBeNull();
     expect(await decodeSession(cookie, 'a-different-secret')).toBeNull();
   });
 });
