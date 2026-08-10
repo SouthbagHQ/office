@@ -159,7 +159,7 @@ kbd { padding: 3px 6px; border: 1px solid #aaa; box-shadow: 0 2px 5px rgba(0,0,0
 .product-loader p { min-width:280px;margin:0;padding:12px;background:#fff;text-align:center;font:18px "Times New Roman"; }
 .product-loader small { font:9px monospace; }
 
-.dialog-backdrop { position:fixed;inset:0;z-index:2500;display:grid;place-items:center;padding:24px;background:rgba(28,28,26,.38);box-shadow:none!important;animation:backdrop-arrival 2.5s linear both; }
+.dialog-backdrop { position:fixed;inset:0;z-index:2500;display:grid;place-items:center;padding:24px;background:rgba(28,28,26,.38);box-shadow:none!important;animation:none; }
 .app-dialog { width:min(440px,100%);padding:24px;background:#f7f6f1;box-shadow:0 18px 48px rgba(0,0,0,.26)!important;animation:dialog-arrival 3s linear both; }
 .app-dialog * { animation:none; }
 .app-dialog img { width:180px;height:56px;object-fit:fill;box-shadow:none; }
