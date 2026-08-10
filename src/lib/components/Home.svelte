@@ -11,12 +11,13 @@
   export let onDelete: (file: OfficeFile) => void;
   export let onExport: (file: OfficeFile) => void;
   export let onImport: (file: File) => void;
+  export let onDeleteAll: () => void;
   export let onDialog: (request: DialogRequest) => void;
 
   let openMenu: string | null = null;
   let ascending = false;
-  $: visible = files
-    .filter((file) => file.title.toLowerCase().includes(query.toLowerCase()))
+  $: visible = (query ? [] : files)
+    .slice()
     .sort((left, right) => (ascending ? 1 : -1) * (new Date(left.modified).getTime() - new Date(right.modified).getTime()));
 
   function dateLabel(value: string) {
@@ -27,12 +28,17 @@
 
   function remove(file: OfficeFile) {
     openMenu = null;
+    onDelete(file);
+  }
+
+  function requestCreation(kind: Kind) {
+    const label = kind === 'doc' ? 'document' : kind === 'slides' ? 'presentation' : 'spreadsheet';
     onDialog({
-      title: 'Delete file?',
-      message: `“${file.title}” will be permanently removed from cloud storage.`,
-      confirmLabel: 'Delete',
+      title: `Create new ${label}?`,
+      message: `A blank ${label} will be created in your cloud workspace.`,
+      confirmLabel: 'Create',
       cancelLabel: 'Cancel',
-      onConfirm: () => onDelete(file)
+      onConfirm: () => onCreate(kind)
     });
   }
 
@@ -50,13 +56,13 @@
 
 <section class="home-view">
   <div class="creation-zone" aria-label="Create a file">
-    <button class="create-card docs" onclick={() => onCreate('doc')}>
+    <button class="create-card docs" onclick={() => requestCreation('doc')}>
       <span class="paper-icon">¶</span><strong>New document</strong><small>Docs</small>
     </button>
-    <button class="create-card slides" onclick={() => onCreate('slides')}>
+    <button class="create-card slides" onclick={() => requestCreation('slides')}>
       <span class="paper-icon">▱</span><strong>New presentation</strong><small>Slides</small>
     </button>
-    <button class="create-card sheets" onclick={() => onCreate('sheet')}>
+    <button class="create-card sheets" onclick={() => requestCreation('sheet')}>
       <span class="paper-icon">⌗</span><strong>New spreadsheet</strong><small>Sheets</small>
     </button>
     <label class="create-card import-card">
@@ -66,6 +72,7 @@
   </div>
 
   <div class="file-controls">
+    <button class="delete-all-files" disabled={!files.length} onclick={onDeleteAll}>Delete all files</button>
     <button aria-label={ascending ? 'Newest first' : 'Oldest first'} onclick={() => (ascending = !ascending)}>↕</button>
     <span>{visible.length}</span>
   </div>
@@ -104,7 +111,7 @@
         {/if}
       </article>
     {:else}
-      <div class="empty-state">
+      <div class="empty-state" class:search-error={Boolean(query)} role="alert">
         <p>{query ? 'Nothing found' : 'No files'}</p>
       </div>
     {/each}

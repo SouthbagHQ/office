@@ -1,5 +1,5 @@
 import type { Workspace } from '$lib/workspace';
-import { sanitizeDocumentHtml } from '../document-html';
+import { sanitizeDocumentHtml } from './document-html';
 
 const MAX_WORKSPACE_BYTES = 2_000_000;
 

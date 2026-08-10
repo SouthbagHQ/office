@@ -28,6 +28,13 @@ async function openSecondPage(context: BrowserContext) {
   return page;
 }
 
+async function createFromHome(page: Page, label: 'document' | 'presentation' | 'spreadsheet') {
+  await page.getByRole('button', { name: new RegExp(`New ${label}`) }).click();
+  const dialog = page.getByRole('dialog', { name: `Create new ${label}?` });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Create' }).click();
+}
+
 test('creates and edits files across the suite', async ({ page }) => {
   const errors: string[] = [];
   const nativeDialogs: string[] = [];
@@ -51,7 +58,11 @@ test('creates and edits files across the suite', async ({ page }) => {
   await page.getByRole('button', { name: 'OK' }).click();
 
   const openingDocument = page.getByText('Opening document…');
-  await page.getByRole('button', { name: /New document/ }).click({ noWaitAfter: true });
+  await page.getByRole('button', { name: /New document/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Create new document?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByText('No files')).toBeVisible();
+  await createFromHome(page, 'document');
   await expect(openingDocument).toBeVisible();
   if (errors.length) throw new Error(`Browser console: ${errors.join(' | ')}`);
   await expect(page.getByRole('textbox', { name: 'Document title' })).toBeVisible();
@@ -61,7 +72,7 @@ test('creates and edits files across the suite', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: 'Document body' })).toHaveText('Cloud memo body');
   await page.getByRole('button', { name: 'Back to files' }).click();
 
-  await page.getByRole('button', { name: /New presentation/ }).click();
+  await createFromHome(page, 'presentation');
   await expect(page.getByRole('textbox', { name: 'Presentation title' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Slide title' })).toHaveText('');
   await expect(page.getByRole('textbox', { name: 'Slide body' })).toHaveText('');
@@ -76,7 +87,7 @@ test('creates and edits files across the suite', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: 'Slide title' })).toHaveText('');
   await page.getByRole('button', { name: 'Back to files' }).click();
 
-  await page.getByRole('button', { name: /New spreadsheet/ }).click();
+  await createFromHome(page, 'spreadsheet');
   await expect(page.getByRole('textbox', { name: 'Spreadsheet title' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Cell A1', exact: true })).toHaveValue('');
   await expect(page.locator('.chart-panel')).toHaveCount(0);
@@ -90,9 +101,11 @@ test('creates and edits files across the suite', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
 
   await page.getByRole('textbox', { name: 'Search files' }).fill('memorandum');
-  await expect(page.getByRole('button', { name: 'Open Browser verified memorandum' })).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveText('Nothing found');
+  await expect(page.getByRole('button', { name: 'Open Browser verified memorandum' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Open Untitled presentation' })).toHaveCount(0);
   await page.getByRole('textbox', { name: 'Search files' }).fill('');
+  await expect(page.getByRole('button', { name: 'Open Browser verified memorandum' })).toBeVisible();
 
   await page.reload();
   await expect(page.getByText('Browser verified memorandum').first()).toBeVisible();
@@ -110,21 +123,28 @@ test('creates and edits files across the suite', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Actions for Browser verified memorandum' }).click();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Delete file?' })).toBeVisible();
-  await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.getByRole('button', { name: 'Open Browser verified memorandum' })).toBeVisible();
-  await page.getByRole('button', { name: 'Actions for Browser verified memorandum' }).click();
-  await page.getByRole('button', { name: 'Delete', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Delete file?' }).getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByText('Deleting file…')).toBeHidden();
   await expect(page.getByText('Browser verified memorandum')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
   await page.reload();
   await expect(page.getByText('Browser verified memorandum')).toHaveCount(0);
 
+  const deleteAll = page.getByRole('button', { name: 'Delete all files' });
+  await expect(deleteAll).toBeEnabled();
+  await deleteAll.click();
+  await expect(page.getByText('Deleting all files…')).toBeHidden();
+  await expect(page.getByText('No files')).toBeVisible();
+  await expect(deleteAll).toBeDisabled();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('No files')).toBeVisible();
+
   const cloud = await page.request.get('/api/workspace');
   expect(cloud.ok()).toBeTruthy();
-  expect(((await cloud.json()) as { revision: number }).revision).toBeGreaterThan(0);
+  const cloudBody = (await cloud.json()) as { workspace: { files: unknown[] }; revision: number };
+  expect(cloudBody.workspace.files).toEqual([]);
+  expect(cloudBody.revision).toBeGreaterThan(0);
   expect(errors).toEqual([]);
   expect(nativeDialogs).toEqual([]);
 });
@@ -151,7 +171,7 @@ test('requires authentication, rejects bad development credentials, and isolates
   await first.getByRole('button', { name: 'Authorise Office' }).click();
   await expect(first.locator('.office-app')).toHaveAttribute('data-ready', 'true');
 
-  await first.getByRole('button', { name: /New document/ }).click();
+  await createFromHome(first, 'document');
   await first.getByRole('textbox', { name: 'Document title' }).fill('Private to account A');
   await first.getByRole('button', { name: 'Back to files' }).click();
   await expect(first.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
@@ -174,7 +194,7 @@ test('requires authentication, rejects bad development credentials, and isolates
 
 test('keeps a deletion when an older tab later saves', async ({ page, context }) => {
   await signIn(page, newIdentity('conflict'));
-  await page.getByRole('button', { name: /New document/ }).click();
+  await createFromHome(page, 'document');
   await page.getByRole('textbox', { name: 'Document title' }).fill('Delete me in tab one');
   await page.getByRole('button', { name: 'Back to files' }).click();
   await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
@@ -184,11 +204,9 @@ test('keeps a deletion when an older tab later saves', async ({ page, context })
 
   await page.getByRole('button', { name: 'Actions for Delete me in tab one' }).click();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Delete file?' }).getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
 
   await olderTab.getByRole('textbox', { name: 'Document title' }).fill('Older tab tried to restore me');
-  await olderTab.getByRole('button', { name: 'Back to files' }).click();
   await expect(olderTab.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
   await olderTab.reload();
   await expect(olderTab.getByText('No files')).toBeVisible();
@@ -200,7 +218,7 @@ test('creates a document when randomUUID is unavailable on an HTTP origin', asyn
     Object.defineProperty(Crypto.prototype, 'randomUUID', { configurable: true, value: undefined });
   });
   await signIn(page, newIdentity('insecure-origin'));
-  await page.getByRole('button', { name: /New document/ }).click();
+  await createFromHome(page, 'document');
   await expect(page.getByRole('textbox', { name: 'Document title' })).toHaveValue('Untitled document');
   await page.getByRole('textbox', { name: 'Document body' }).pressSequentially('Created over HTTP');
   await expect(page.getByRole('textbox', { name: 'Document body' })).toHaveText('Created over HTTP');

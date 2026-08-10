@@ -22,7 +22,6 @@
 
   function updateContent() {
     const content = sanitizeDocumentHtml(page.innerHTML);
-    if (content !== page.innerHTML) page.innerHTML = content;
     onChange({ ...file, content, modified: new Date().toISOString() });
     savedMessage = 'Saving…';
     window.setTimeout(() => (savedMessage = 'Saved'), 500);

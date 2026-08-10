@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeDocumentHtml } from './document-html';
+import { sanitizeDocumentHtml } from './server/document-html';
 
 describe('document HTML sanitization', () => {
   it('keeps editor formatting', () => {

@@ -244,6 +244,18 @@
     operationLoading = '';
   }
 
+  async function deleteAllFiles() {
+    if (!workspace.files.length) return;
+    persist({
+      ...workspace,
+      files: [],
+      deletedIds: [...new Set([...(workspace.deletedIds ?? []), ...workspace.files.map((file) => file.id)])]
+    });
+    operationLoading = 'Deleting all files…';
+    await delay(360);
+    operationLoading = '';
+  }
+
   function navigate(kind: Kind | 'home') {
     if (kind === 'home') {
       activeId = null;
@@ -335,7 +347,7 @@
       </aside>
 
       <main class="main-content">
-        <Home files={workspace.files} {query} onOpen={(file) => (activeId = file.id)} onCreate={create} onDelete={deleteFile} onExport={exportFile} onImport={importFile} onDialog={(request) => (dialogRequest = request)} />
+        <Home files={workspace.files} {query} onOpen={(file) => (activeId = file.id)} onCreate={create} onDelete={deleteFile} onDeleteAll={deleteAllFiles} onExport={exportFile} onImport={importFile} onDialog={(request) => (dialogRequest = request)} />
       </main>
     </div>
   {/if}
