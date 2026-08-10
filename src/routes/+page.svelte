@@ -209,7 +209,14 @@
     dialogRequest = null;
     if (confirmed) request?.onConfirm?.();
   }
+
+  function blockContentEgress(event: ClipboardEvent | DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
 </script>
+
+<svelte:window oncopy={blockContentEgress} oncut={blockContentEgress} ondragstart={blockContentEgress} />
 
 <svelte:head>
   <title>{activeFile ? `${activeFile.title} — Southbag Office™` : 'Southbag Office™ — Work made possible'}</title>
