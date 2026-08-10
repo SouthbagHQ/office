@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/private';
+import { dev } from '$app/environment';
 import { redirect, type RequestHandler } from '@sveltejs/kit';
 
 const encoder = new TextEncoder();
@@ -15,12 +16,14 @@ function base64Url(bytes: Uint8Array) {
 }
 
 export const GET: RequestHandler = async ({ cookies, url }) => {
-  if (!env.OIDC_CLIENT_ID || !env.OIDC_CLIENT_SECRET || !env.SESSION_SECRET) {
-    redirect(302, '/?auth=unconfigured');
-  }
+  const useDevelopmentProvider = dev && !env.OIDC_CLIENT_ID;
+  const clientId = useDevelopmentProvider ? 'southbag-office-dev' : env.OIDC_CLIENT_ID;
+  const clientSecret = useDevelopmentProvider ? 'southbag-office-dev-secret' : env.OIDC_CLIENT_SECRET;
+  const sessionSecret = env.SESSION_SECRET || (useDevelopmentProvider ? 'southbag-office-development-session-secret-only' : '');
+  if (!clientId || !clientSecret || !sessionSecret) redirect(302, '/login?error=unconfigured');
 
-  const identityOrigin = env.IDENTITY_ORIGIN || 'https://identity.southbag.cc';
-  const appOrigin = env.ORIGIN || url.origin;
+  const identityOrigin = useDevelopmentProvider ? url.origin : env.IDENTITY_ORIGIN || 'https://identity.southbag.cc';
+  const appOrigin = useDevelopmentProvider ? url.origin : env.ORIGIN || url.origin;
   const state = randomToken();
   const verifier = randomToken();
   const nonce = randomToken();
@@ -31,10 +34,11 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
   cookies.set('southbag_office_oauth_state', state, cookieOptions);
   cookies.set('southbag_office_oauth_verifier', verifier, cookieOptions);
   cookies.set('southbag_office_oauth_nonce', nonce, cookieOptions);
+  cookies.set('southbag_office_oauth_provider', useDevelopmentProvider ? 'development' : 'southbag', cookieOptions);
 
-  const authorize = new URL('/api/auth/oauth2/authorize', identityOrigin);
+  const authorize = new URL(useDevelopmentProvider ? '/dev-idp/authorize' : '/api/auth/oauth2/authorize', identityOrigin);
   authorize.search = new URLSearchParams({
-    client_id: env.OIDC_CLIENT_ID,
+    client_id: clientId,
     redirect_uri: `${appOrigin}/auth/callback`,
     response_type: 'code',
     scope: 'openid profile email',

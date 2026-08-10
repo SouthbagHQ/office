@@ -25,8 +25,12 @@
 
   $: activeFile = workspace.files.find((file) => file.id === activeId) ?? null;
 
+  function storageKey(name: string) {
+    return `southbag-office-${data.user?.sub ?? 'blocked'}-${name}`;
+  }
+
   onMount(() => {
-    const saved = localStorage.getItem('southbag-office-workspace-v1');
+    const saved = localStorage.getItem(storageKey('workspace-v1'));
     if (saved) {
       try {
         workspace = JSON.parse(saved) as Workspace;
@@ -34,14 +38,14 @@
         notice = 'Your saved work was shaped incorrectly, so we placed the samples over here.';
       }
     }
-    syncRevision = Number(localStorage.getItem('southbag-office-revision') ?? '0') || 0;
-    syncUpdatedAt = localStorage.getItem('southbag-office-updated-at') ?? '';
+    syncRevision = Number(localStorage.getItem(storageKey('revision')) ?? '0') || 0;
+    syncUpdatedAt = localStorage.getItem(storageKey('updated-at')) ?? '';
     loaded = true;
     const params = new URLSearchParams(location.search);
     if (params.get('auth') === 'unconfigured') notice = 'SSO exists but this deployment forgot its client credentials.';
     if (params.has('signed-in')) notice = 'Identity accepted. Your cloud filing cabinet is now attached.';
 
-    void initialiseCloud(localStorage.getItem('southbag-office-dirty') === 'true');
+    void initialiseCloud(localStorage.getItem(storageKey('dirty')) === 'true');
     const flushBeforeLeaving = () => {
       if (pendingWorkspace) void flushCloud();
     };
@@ -73,10 +77,10 @@
       workspace = cloud.workspace;
       syncRevision = cloud.revision;
       syncUpdatedAt = cloud.updatedAt;
-      localStorage.setItem('southbag-office-workspace-v1', JSON.stringify(workspace));
-      localStorage.setItem('southbag-office-revision', String(syncRevision));
-      localStorage.setItem('southbag-office-updated-at', syncUpdatedAt);
-      localStorage.setItem('southbag-office-dirty', 'false');
+      localStorage.setItem(storageKey('workspace-v1'), JSON.stringify(workspace));
+      localStorage.setItem(storageKey('revision'), String(syncRevision));
+      localStorage.setItem(storageKey('updated-at'), syncUpdatedAt);
+      localStorage.setItem(storageKey('dirty'), 'false');
       syncStatus = 'saved';
     } catch {
       syncStatus = navigator.onLine ? 'error' : 'offline';
@@ -107,7 +111,7 @@
       if (response.status === 409 && cloud.workspace && typeof cloud.revision === 'number') {
         const merged = mergeWorkspaces(sending, cloud.workspace);
         workspace = merged;
-        localStorage.setItem('southbag-office-workspace-v1', JSON.stringify(merged));
+        localStorage.setItem(storageKey('workspace-v1'), JSON.stringify(merged));
         syncRevision = cloud.revision;
         response = await fetch('/api/workspace', {
           method: 'PUT',
@@ -120,9 +124,9 @@
       if (!response.ok || typeof cloud.revision !== 'number') throw new Error('cloud save failed');
       syncRevision = cloud.revision;
       syncUpdatedAt = cloud.updatedAt ?? new Date().toISOString();
-      localStorage.setItem('southbag-office-revision', String(syncRevision));
-      localStorage.setItem('southbag-office-updated-at', syncUpdatedAt);
-      localStorage.setItem('southbag-office-dirty', 'false');
+      localStorage.setItem(storageKey('revision'), String(syncRevision));
+      localStorage.setItem(storageKey('updated-at'), syncUpdatedAt);
+      localStorage.setItem(storageKey('dirty'), 'false');
       syncStatus = 'saved';
     } catch {
       pendingWorkspace = workspace;
@@ -136,8 +140,8 @@
   function persist(next: Workspace) {
     workspace = next;
     if (loaded) {
-      localStorage.setItem('southbag-office-workspace-v1', JSON.stringify(next));
-      localStorage.setItem('southbag-office-dirty', 'true');
+      localStorage.setItem(storageKey('workspace-v1'), JSON.stringify(next));
+      localStorage.setItem(storageKey('dirty'), 'true');
       queueCloudSave(next);
     }
   }
@@ -175,7 +179,7 @@
     onclick={() => (pendingWorkspace = workspace, void flushCloud())}
   >
     <i></i><strong>{syncStatus === 'saved' ? 'Saved to cloud' : syncStatus === 'saving' ? 'Saving to cloud…' : syncStatus === 'loading' ? 'Opening cloud…' : syncStatus === 'offline' ? 'Offline — saved here' : 'Cloud needs retry'}</strong>
-    <span>{data.user ? 'Identity workspace' : 'private guest workspace'}</span>
+    <span>Southbag Identity workspace</span>
   </button>
   {#if !activeFile}
     <header class="global-header">

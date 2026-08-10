@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/private';
+import { dev } from '$app/environment';
 import { setSession, type OfficeUser } from '$lib/server/session';
 import { error, redirect, type RequestHandler } from '@sveltejs/kit';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
@@ -11,26 +12,34 @@ export const GET: RequestHandler = async ({ cookies, url, fetch }) => {
   const expectedState = cookies.get('southbag_office_oauth_state');
   const verifier = cookies.get('southbag_office_oauth_verifier');
   const nonce = cookies.get('southbag_office_oauth_nonce');
+  const provider = cookies.get('southbag_office_oauth_provider');
   cookies.delete('southbag_office_oauth_state', { path: '/' });
   cookies.delete('southbag_office_oauth_verifier', { path: '/' });
   cookies.delete('southbag_office_oauth_nonce', { path: '/' });
+  cookies.delete('southbag_office_oauth_provider', { path: '/' });
 
   if (!code || !state || state !== expectedState || !verifier || !nonce) error(400, 'Identity paperwork did not match.');
-  if (!env.OIDC_CLIENT_ID || !env.OIDC_CLIENT_SECRET || !env.SESSION_SECRET) {
+  const useDevelopmentProvider = dev && provider === 'development';
+  const clientId = useDevelopmentProvider ? 'southbag-office-dev' : env.OIDC_CLIENT_ID;
+  const clientSecret = useDevelopmentProvider ? 'southbag-office-dev-secret' : env.OIDC_CLIENT_SECRET;
+  const sessionSecret = env.SESSION_SECRET || (useDevelopmentProvider ? 'southbag-office-development-session-secret-only' : '');
+  if (!clientId || !clientSecret || !sessionSecret) {
     error(503, 'Office SSO is missing its deployment secrets.');
   }
 
-  const identityOrigin = env.IDENTITY_ORIGIN || 'https://identity.southbag.cc';
-  const appOrigin = env.ORIGIN || url.origin;
-  const credentials = btoa(`${env.OIDC_CLIENT_ID}:${env.OIDC_CLIENT_SECRET}`);
-  const tokenResponse = await fetch(new URL('/api/auth/oauth2/token', identityOrigin), {
+  const identityOrigin = useDevelopmentProvider ? url.origin : env.IDENTITY_ORIGIN || 'https://identity.southbag.cc';
+  const issuer = useDevelopmentProvider ? `${url.origin}/dev-idp` : identityOrigin;
+  const appOrigin = useDevelopmentProvider ? url.origin : env.ORIGIN || url.origin;
+  const tokenEndpoint = new URL(useDevelopmentProvider ? '/dev-idp/token' : '/api/auth/oauth2/token', identityOrigin);
+  const credentials = btoa(`${clientId}:${clientSecret}`);
+  const tokenResponse = await fetch(tokenEndpoint, {
     method: 'POST',
     headers: {
       authorization: `Basic ${credentials}`,
       'content-type': 'application/x-www-form-urlencoded',
       // Identity's current SvelteKit CSRF guard rejects standards-compliant
       // server POSTs without a same-origin Origin header.
-      origin: identityOrigin
+      origin: tokenEndpoint.origin
     },
     body: new URLSearchParams({
       grant_type: 'authorization_code',
@@ -42,19 +51,21 @@ export const GET: RequestHandler = async ({ cookies, url, fetch }) => {
   const tokens = (await tokenResponse.json().catch(() => ({}))) as TokenResponse;
   if (!tokenResponse.ok || !tokens.access_token || !tokens.id_token) error(502, tokens.error || 'Identity token exchange failed.');
 
-  const metadataResponse = await fetch(new URL('/.well-known/openid-configuration', identityOrigin));
+  const metadataResponse = await fetch(
+    new URL(useDevelopmentProvider ? '/dev-idp/.well-known/openid-configuration' : '/.well-known/openid-configuration', identityOrigin)
+  );
   const metadata = (await metadataResponse.json().catch(() => ({}))) as {
     issuer?: string;
     jwks_uri?: string;
     userinfo_endpoint?: string;
   };
-  if (!metadataResponse.ok || !metadata.jwks_uri || metadata.issuer !== identityOrigin) {
+  if (!metadataResponse.ok || !metadata.jwks_uri || metadata.issuer !== issuer) {
     error(502, 'Identity discovery disagreed with itself.');
   }
   try {
     const verified = await jwtVerify(tokens.id_token, createRemoteJWKSet(new URL(metadata.jwks_uri)), {
-      issuer: identityOrigin,
-      audience: env.OIDC_CLIENT_ID
+      issuer,
+      audience: clientId
     });
     if (verified.payload.nonce !== nonce) throw new Error('nonce mismatch');
   } catch {
@@ -75,7 +86,7 @@ export const GET: RequestHandler = async ({ cookies, url, fetch }) => {
       name: profile.name || profile.email.split('@')[0],
       picture: profile.picture
     },
-    env.SESSION_SECRET,
+    sessionSecret,
     appOrigin.startsWith('https://')
   );
 

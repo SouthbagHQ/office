@@ -3,5 +3,5 @@ import { redirect, type RequestHandler } from '@sveltejs/kit';
 
 export const GET: RequestHandler = ({ cookies }) => {
   clearSession(cookies);
-  redirect(302, '/');
+  redirect(302, '/login');
 };

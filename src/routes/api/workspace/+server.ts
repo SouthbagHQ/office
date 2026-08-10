@@ -7,10 +7,11 @@ function database(platform: App.Platform | undefined): D1Database | null {
   return platform?.env?.DB ?? null;
 }
 
-export const GET: RequestHandler = async ({ platform, locals, cookies, url }) => {
+export const GET: RequestHandler = async ({ platform, locals }) => {
+  if (!locals.user) return json({ error: 'Identity required.' }, { status: 401 });
   const db = database(platform);
   if (!db) return json({ error: 'Cloud filing cabinet unavailable.' }, { status: 503 });
-  const owner = workspaceOwner(locals.user, cookies, url.protocol === 'https:');
+  const owner = workspaceOwner(locals.user);
   const row = await db
     .prepare('SELECT data, revision, updated_at FROM workspaces WHERE owner_key = ?')
     .bind(owner)
@@ -21,7 +22,8 @@ export const GET: RequestHandler = async ({ platform, locals, cookies, url }) =>
   return stored ? json(stored) : json({ error: 'Cloud workspace is unreadable.' }, { status: 500 });
 };
 
-export const PUT: RequestHandler = async ({ request, platform, locals, cookies, url }) => {
+export const PUT: RequestHandler = async ({ request, platform, locals }) => {
+  if (!locals.user) return json({ error: 'Identity required.' }, { status: 401 });
   const db = database(platform);
   if (!db) return json({ error: 'Cloud filing cabinet unavailable.' }, { status: 503 });
   const contentLength = Number(request.headers.get('content-length') ?? '0');
@@ -33,7 +35,7 @@ export const PUT: RequestHandler = async ({ request, platform, locals, cookies, 
   const workspace = parseWorkspace(body?.workspace);
   if (!workspace) return json({ error: 'Workspace refused to resemble a workspace.' }, { status: 400 });
 
-  const owner = workspaceOwner(locals.user, cookies, url.protocol === 'https:');
+  const owner = workspaceOwner(locals.user);
   const existing = await db
     .prepare('SELECT data, revision, updated_at FROM workspaces WHERE owner_key = ?')
     .bind(owner)

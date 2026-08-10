@@ -1,24 +1,10 @@
-import type { Cookies } from '@sveltejs/kit';
 import type { Workspace } from '$lib/workspace';
 
-const GUEST_COOKIE = 'southbag_office_guest';
 const MAX_WORKSPACE_BYTES = 2_000_000;
 
-export function workspaceOwner(user: App.Locals['user'], cookies: Cookies, secure: boolean): string {
-  if (user) return `user:${user.sub}`;
-
-  let guestId = cookies.get(GUEST_COOKIE);
-  if (!guestId || !/^[a-f0-9-]{36}$/i.test(guestId)) {
-    guestId = crypto.randomUUID();
-    cookies.set(GUEST_COOKIE, guestId, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      secure,
-      maxAge: 365 * 24 * 60 * 60
-    });
-  }
-  return `guest:${guestId}`;
+export function workspaceOwner(user: App.Locals['user']): string {
+  if (!user) throw new Error('Identity required for workspace ownership.');
+  return `user:${user.sub}`;
 }
 
 export function parseWorkspace(value: unknown): Workspace | null {

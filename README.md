@@ -11,7 +11,15 @@ bun run db:migrate:local
 bun run dev
 ```
 
-The editors and local D1 cloud sync work without signing in. To exercise SSO, create a confidential OAuth app at `https://identity.southbag.cc/developer/apps/new` with this callback:
+Authentication is mandatory for both the editors and workspace API. During `vite dev`, when production OIDC credentials are absent, Office automatically uses its built-in development OAuth/OIDC provider. The provider uses authorization code, S256 PKCE, nonce validation, EdDSA ID tokens, JWKS, and user-info just like the production flow.
+
+Development credentials are shown on its login page:
+
+```text
+employee@southbag.cc / southbag
+```
+
+The provider routes return 404 in production builds. To exercise production SSO, create a confidential OAuth app at `https://identity.southbag.cc/developer/apps/new` with this callback:
 
 ```text
 http://localhost:5173/auth/callback
