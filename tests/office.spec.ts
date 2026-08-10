@@ -43,7 +43,7 @@ test('creates and edits files across the suite', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText('Browser verified memorandum')).toBeVisible();
+  await expect(page.getByText('Browser verified memorandum').first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
   const cloud = await page.request.get('/api/workspace');
   expect(cloud.ok()).toBeTruthy();
