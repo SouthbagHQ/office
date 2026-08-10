@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DialogRequest } from '$lib/dialog';
+  import { southbagAccept } from '$lib/file-format';
   import type { Kind, OfficeFile } from '$lib/workspace';
   import { kindLabel } from '$lib/workspace';
 
@@ -8,6 +9,8 @@
   export let onOpen: (file: OfficeFile) => void;
   export let onCreate: (kind: Kind) => void;
   export let onDelete: (file: OfficeFile) => void;
+  export let onExport: (file: OfficeFile) => void;
+  export let onImport: (file: File) => void;
   export let onDeleteAll: () => void;
   export let onDialog: (request: DialogRequest) => void;
 
@@ -38,6 +41,17 @@
       onConfirm: () => onCreate(kind)
     });
   }
+
+  function chooseImport(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const selected = input.files?.[0];
+    if (selected) onImport(selected);
+    input.value = '';
+  }
+
+  function exportLabel(kind: Kind) {
+    return kind === 'doc' ? 'Export document' : kind === 'slides' ? 'Export presentation' : 'Export spreadsheet';
+  }
 </script>
 
 <section class="home-view">
@@ -51,6 +65,10 @@
     <button class="create-card sheets" onclick={() => requestCreation('sheet')}>
       <span class="paper-icon">⌗</span><strong>New spreadsheet</strong><small>Sheets</small>
     </button>
+    <label class="create-card import-card">
+      <input type="file" accept={southbagAccept} onchange={chooseImport} />
+      <span class="paper-icon">⇧</span><strong>Import file</strong><small>Southbag format only</small>
+    </label>
   </div>
 
   <div class="file-controls">
@@ -87,6 +105,7 @@
         >•••</button>
         {#if openMenu === file.id}
           <div class="file-menu">
+            <button onclick={() => (openMenu = null, onExport(file))}>{exportLabel(file.kind)}</button>
             <button onclick={() => remove(file)}>Delete</button>
           </div>
         {/if}

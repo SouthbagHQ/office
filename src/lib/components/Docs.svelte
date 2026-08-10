@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DialogRequest } from '$lib/dialog';
+  import { sanitizeDocumentHtml } from '$lib/document-html';
   import type { DocumentFile } from '$lib/workspace';
   import { tick } from 'svelte';
 
@@ -7,8 +8,9 @@
   export let onChange: (file: DocumentFile) => void;
   export let onExit: () => void;
   export let onDialog: (request: DialogRequest) => void;
+  export let onExport: (file: DocumentFile) => void;
 
-  const initialContent = file.content;
+  const initialContent = sanitizeDocumentHtml(file.content);
   let page: HTMLDivElement;
   let zoom = 100;
   let showFind = false;
@@ -19,9 +21,28 @@
   $: words = plainText ? plainText.split(' ').length : 0;
 
   function updateContent() {
-    onChange({ ...file, content: page.innerHTML, modified: new Date().toISOString() });
+    const content = sanitizeDocumentHtml(page.innerHTML);
+    onChange({ ...file, content, modified: new Date().toISOString() });
     savedMessage = 'Saving…';
     window.setTimeout(() => (savedMessage = 'Saved'), 500);
+  }
+
+  function insertTransferredContent(transfer: DataTransfer | null) {
+    const richContent = transfer?.getData('text/html') ?? '';
+    if (richContent) document.execCommand('insertHTML', false, sanitizeDocumentHtml(richContent));
+    else document.execCommand('insertText', false, transfer?.getData('text/plain') ?? '');
+    updateContent();
+  }
+
+  function pasteContent(event: ClipboardEvent) {
+    event.preventDefault();
+    insertTransferredContent(event.clipboardData);
+  }
+
+  function dropContent(event: DragEvent) {
+    event.preventDefault();
+    page.focus();
+    insertTransferredContent(event.dataTransfer);
   }
 
   function command(name: string, value?: string) {
@@ -60,7 +81,7 @@
       </nav>
     </div>
     <span class="save-state">● {savedMessage}</span>
-    <a class="share-button" href="mailto:?subject=Southbag document&body=The document is saved in Southbag Office.">Share document</a>
+    <button class="export-button" onclick={() => onExport(file)}>Export document</button>
   </header>
 
   <div class="toolbar" role="toolbar" aria-label="Document formatting">
@@ -99,9 +120,12 @@
       bind:this={page}
       contenteditable="true"
       role="textbox"
+      tabindex="0"
       aria-multiline="true"
       aria-label="Document body"
       oninput={updateContent}
+      onpaste={pasteContent}
+      ondrop={dropContent}
     >{@html initialContent}</div>
   </div>
   <footer class="editor-status">

@@ -217,7 +217,6 @@ test('keeps a deletion when an older tab later saves', async ({ page, context })
   await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
 
   await olderTab.getByRole('textbox', { name: 'Document title' }).fill('Older tab tried to restore me');
-  await olderTab.getByRole('button', { name: 'Back to files' }).click();
   await expect(olderTab.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
   await olderTab.reload();
   await expect(olderTab.getByText('No files')).toBeVisible();
@@ -237,6 +236,33 @@ test('creates a document when randomUUID is unavailable on an HTTP origin', asyn
   await expect(page.getByRole('button', { name: /Saved to cloud/ })).toBeVisible();
   const cloud = await page.request.get('/api/workspace');
   expect(((await cloud.json()) as { workspace: { files: unknown[] } }).workspace.files).toHaveLength(1);
+});
+
+test('exports and imports a server-encrypted Southbag file', async ({ page }) => {
+  await signIn(page, newIdentity('encrypted-format'));
+  const file = {
+    id: 'doc-format-round-trip',
+    kind: 'doc',
+    title: 'Confidential format test',
+    content: '<p>Only the configured server should read this.</p>',
+    modified: new Date().toISOString(),
+    owner: 'Format Tester'
+  };
+
+  const exported = await page.request.post('/api/files/export', { data: { file } });
+  expect(exported.ok()).toBeTruthy();
+  expect(exported.headers()['content-type']).toBe('application/vnd.southbag.docs');
+  expect(exported.headers()['content-disposition']).toContain('Confidential format test.southbagdocs');
+  const encrypted = await exported.body();
+  expect(encrypted.subarray(0, 8).toString()).toBe('SOUTHBAG');
+  expect(encrypted.toString()).not.toContain('Only the configured server');
+
+  const imported = await page.request.post('/api/files/import', {
+    data: encrypted,
+    headers: { 'content-type': 'application/vnd.southbag.docs' }
+  });
+  expect(imported.ok()).toBeTruthy();
+  expect((await imported.json()).file).toEqual(file);
 });
 
 test('renders the intentionally unhelpful home at mobile width', async ({ page }) => {

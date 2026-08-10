@@ -7,7 +7,8 @@
   import Sheets from '$lib/components/Sheets.svelte';
   import Slides from '$lib/components/Slides.svelte';
   import type { DialogRequest } from '$lib/dialog';
-  import { createFile, initialWorkspace, type Kind, type OfficeFile, type Workspace } from '$lib/workspace';
+  import { southbagFilename } from '$lib/file-format';
+  import { createFile, initialWorkspace, newOfficeFileId, type Kind, type OfficeFile, type Workspace } from '$lib/workspace';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -162,6 +163,67 @@
     persist({ ...workspace, files: workspace.files.map((file) => (file.id === nextFile.id ? nextFile : file)) });
   }
 
+  async function encryptedFile(file: OfficeFile): Promise<{ blob: Blob; filename: string }> {
+    const response = await fetch('/api/files/export', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ file })
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      throw new Error(body.error || 'Export failed.');
+    }
+    return { blob: await response.blob(), filename: southbagFilename(file.title, file.kind) };
+  }
+
+  function downloadBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  }
+
+  async function exportFile(file: OfficeFile) {
+    operationLoading = 'Preparing export…';
+    try {
+      const exported = await encryptedFile(file);
+      downloadBlob(exported.blob, exported.filename);
+      notice = `${exported.filename} was exported.`;
+    } catch (error) {
+      notice = error instanceof Error ? error.message : 'Export failed.';
+    } finally {
+      operationLoading = '';
+    }
+  }
+
+  async function importFile(packageFile: File) {
+    operationLoading = 'Opening file…';
+    try {
+      const response = await fetch('/api/files/import', {
+        method: 'POST',
+        headers: { 'content-type': packageFile.type || 'application/octet-stream' },
+        body: packageFile
+      });
+      const body = (await response.json().catch(() => ({}))) as { file?: OfficeFile; error?: string };
+      if (!response.ok || !body.file) throw new Error(body.error || 'Import failed.');
+      const imported: OfficeFile = {
+        ...body.file,
+        id: newOfficeFileId(body.file.kind),
+        owner: data.user?.name ?? 'You',
+        modified: new Date().toISOString()
+      };
+      persist({ ...workspace, files: [imported, ...workspace.files] });
+      activeId = imported.id;
+      notice = `${packageFile.name} was imported.`;
+    } catch (error) {
+      notice = error instanceof Error ? error.message : 'Import failed.';
+    } finally {
+      operationLoading = '';
+    }
+  }
+
   async function create(kind: Kind) {
     operationLoading = kind === 'doc' ? 'Opening document…' : kind === 'slides' ? 'Opening presentation…' : 'Opening spreadsheet…';
     await delay(420);
@@ -268,11 +330,11 @@
 
   {#if activeFile}
     {#if activeFile.kind === 'doc'}
-      <Docs file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} />
+      <Docs file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} onExport={exportFile} />
     {:else if activeFile.kind === 'slides'}
-      <Slides file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} />
+      <Slides file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} onExport={exportFile} />
     {:else}
-      <Sheets file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} />
+      <Sheets file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} onExport={exportFile} />
     {/if}
   {:else}
     <div class="shell-grid">
@@ -292,7 +354,7 @@
       </aside>
 
       <main class="main-content">
-        <Home files={workspace.files} {query} onOpen={(file) => (activeId = file.id)} onCreate={create} onDelete={deleteFile} onDeleteAll={deleteAllFiles} onDialog={(request) => (dialogRequest = request)} />
+        <Home files={workspace.files} {query} onOpen={(file) => (activeId = file.id)} onCreate={create} onDelete={deleteFile} onDeleteAll={deleteAllFiles} onExport={exportFile} onImport={importFile} onDialog={(request) => (dialogRequest = request)} />
       </main>
     </div>
   {/if}

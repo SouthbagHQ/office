@@ -27,6 +27,14 @@ http://localhost:5173/auth/callback
 
 Then set `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and a long random `SESSION_SECRET` in `.env`.
 
+Southbag file import and export also requires a server-only 256-bit key. Generate it once and keep the same value for every deployment that must open existing exports:
+
+```sh
+openssl rand -base64 32
+```
+
+Put the result in `SOUTHBAG_FILE_KEY` in `.env`. The browser never receives the key. Docs, Slides, and Sheets use `.southbagdocs`, `.southbagslides`, and `.southbagsheets` respectively.
+
 ## Checks
 
 ```sh
@@ -52,6 +60,7 @@ Register the production callback URL `https://office.southbag.cc/auth/callback` 
 bunx wrangler secret put OIDC_CLIENT_ID
 bunx wrangler secret put OIDC_CLIENT_SECRET
 bunx wrangler secret put SESSION_SECRET
+bunx wrangler secret put SOUTHBAG_FILE_KEY
 bun run build
 bun run cf:deploy
 ```

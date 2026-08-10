@@ -7,6 +7,7 @@
   export let onChange: (file: SheetFile) => void;
   export let onExit: () => void;
   export let onDialog: (request: DialogRequest) => void;
+  export let onExport: (file: SheetFile) => void;
 
   const columns = Array.from({ length: 9 }, (_, index) => String.fromCharCode(65 + index));
   const rows = Array.from({ length: 18 }, (_, index) => index + 1);
@@ -32,7 +33,7 @@
       </nav>
     </div>
     <span class="save-state">◆ Saved</span>
-    <a class="share-button sheets-share" href="mailto:?subject=Cell attachment&body=Please see cell B2 attached mentally.">Restrict access</a>
+    <button class="export-button" onclick={() => onExport(file)}>Export spreadsheet</button>
   </header>
 
   <div class="toolbar sheet-toolbar">

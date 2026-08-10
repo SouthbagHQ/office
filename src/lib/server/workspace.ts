@@ -1,4 +1,5 @@
 import type { Workspace } from '$lib/workspace';
+import { sanitizeDocumentHtml } from './document-html';
 
 const MAX_WORKSPACE_BYTES = 2_000_000;
 
@@ -24,16 +25,24 @@ export function parseWorkspace(value: unknown): Workspace | null {
     if (typeof file.title !== 'string' || file.title.length > 500) return null;
     if (typeof file.modified !== 'string' || typeof file.owner !== 'string' || file.owner.length > 500) return null;
     if (!['doc', 'slides', 'sheet'].includes(file.kind)) return null;
-    if (file.kind === 'doc' && typeof file.content !== 'string') return null;
+    if (file.kind === 'doc' && (typeof file.content !== 'string' || file.content.length > 1_800_000)) return null;
     if (
       file.kind === 'slides' &&
       (!Array.isArray(file.slides) ||
+        file.slides.length === 0 ||
+        file.slides.length > 500 ||
+        !Number.isInteger(file.theme) ||
+        file.theme < 0 ||
+        file.theme > 2 ||
         typeof file.notes !== 'string' ||
+        file.notes.length > 200_000 ||
         !file.slides.every(
           (slide) =>
             slide &&
             typeof slide.title === 'string' &&
+            slide.title.length <= 10_000 &&
             typeof slide.body === 'string' &&
+            slide.body.length <= 100_000 &&
             ['title', 'statement', 'split'].includes(slide.layout)
         ))
     ) return null;
@@ -47,7 +56,13 @@ export function parseWorkspace(value: unknown): Workspace | null {
     ) return null;
   }
 
-  return JSON.stringify(workspace).length <= MAX_WORKSPACE_BYTES ? workspace : null;
+  if (JSON.stringify(workspace).length > MAX_WORKSPACE_BYTES) return null;
+  return {
+    ...workspace,
+    files: workspace.files.map((file) =>
+      file.kind === 'doc' ? { ...file, content: sanitizeDocumentHtml(file.content) } : file
+    )
+  };
 }
 
 export type StoredWorkspace = {

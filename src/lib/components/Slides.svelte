@@ -7,6 +7,7 @@
   export let onChange: (file: SlideFile) => void;
   export let onExit: () => void;
   export let onDialog: (request: DialogRequest) => void;
+  export let onExport: (file: SlideFile) => void;
 
   let selected = 0;
   let presenting = false;
@@ -56,6 +57,7 @@
       </nav>
     </div>
     <span class="save-state">▲ Saved</span>
+    <button class="export-button" onclick={() => onExport(file)}>Export presentation</button>
     <button class="present-button" onclick={() => (presenting = true)}>Present ▶</button>
   </header>
 
