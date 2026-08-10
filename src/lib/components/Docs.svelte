@@ -8,7 +8,6 @@
   export let onExit: () => void;
   export let onDialog: (request: DialogRequest) => void;
   export let onExport: (file: DocumentFile) => void;
-  export let onShare: (file: DocumentFile) => void;
 
   const initialContent = file.content;
   let page: HTMLDivElement;
@@ -62,8 +61,7 @@
       </nav>
     </div>
     <span class="save-state">● {savedMessage}</span>
-    <button class="export-button" onclick={() => onExport(file)}>Export</button>
-    <button class="share-button" onclick={() => onShare(file)}>Share document</button>
+    <button class="export-button" onclick={() => onExport(file)}>Export document</button>
   </header>
 
   <div class="toolbar" role="toolbar" aria-label="Document formatting">

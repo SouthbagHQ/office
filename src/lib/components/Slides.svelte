@@ -8,7 +8,6 @@
   export let onExit: () => void;
   export let onDialog: (request: DialogRequest) => void;
   export let onExport: (file: SlideFile) => void;
-  export let onShare: (file: SlideFile) => void;
 
   let selected = 0;
   let presenting = false;
@@ -58,8 +57,7 @@
       </nav>
     </div>
     <span class="save-state">▲ Saved</span>
-    <button class="export-button" onclick={() => onExport(file)}>Export</button>
-    <button class="share-button" onclick={() => onShare(file)}>Share presentation</button>
+    <button class="export-button" onclick={() => onExport(file)}>Export presentation</button>
     <button class="present-button" onclick={() => (presenting = true)}>Present ▶</button>
   </header>
 

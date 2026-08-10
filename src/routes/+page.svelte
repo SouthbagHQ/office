@@ -7,7 +7,7 @@
   import Sheets from '$lib/components/Sheets.svelte';
   import Slides from '$lib/components/Slides.svelte';
   import type { DialogRequest } from '$lib/dialog';
-  import { southbagFilename, southbagMimeType } from '$lib/file-format';
+  import { southbagFilename } from '$lib/file-format';
   import { createFile, initialWorkspace, newOfficeFileId, type Kind, type OfficeFile, type Workspace } from '$lib/workspace';
   import type { PageData } from './$types';
 
@@ -171,7 +171,7 @@
     });
     if (!response.ok) {
       const body = (await response.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error || 'Encrypted export failed.');
+      throw new Error(body.error || 'Export failed.');
     }
     return { blob: await response.blob(), filename: southbagFilename(file.title, file.kind) };
   }
@@ -186,49 +186,20 @@
   }
 
   async function exportFile(file: OfficeFile) {
-    operationLoading = 'Encrypting export on server…';
+    operationLoading = 'Preparing export…';
     try {
       const exported = await encryptedFile(file);
       downloadBlob(exported.blob, exported.filename);
-      notice = `${exported.filename} was encrypted and exported.`;
+      notice = `${exported.filename} was exported.`;
     } catch (error) {
-      notice = error instanceof Error ? error.message : 'Encrypted export failed.';
-    } finally {
-      operationLoading = '';
-    }
-  }
-
-  async function shareFile(file: OfficeFile) {
-    operationLoading = 'Encrypting email attachment…';
-    try {
-      const exported = await encryptedFile(file);
-      const attachment = new File([exported.blob], exported.filename, { type: southbagMimeType(file.kind) });
-      const shareData: ShareData = {
-        title: file.title,
-        text: 'Encrypted Southbag Office file attached.',
-        files: [attachment]
-      };
-      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
-        operationLoading = '';
-        await navigator.share(shareData);
-        return;
-      }
-
-      downloadBlob(exported.blob, exported.filename);
-      notice = `Your browser cannot attach files to email directly. ${exported.filename} was downloaded for attachment.`;
-      const subject = encodeURIComponent(`${file.title} — Southbag Office`);
-      const body = encodeURIComponent(`Please attach the downloaded file “${exported.filename}”. It can only be opened by a configured Southbag Office server.`);
-      window.location.href = `mailto:?subject=${subject}&body=${body}`;
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      notice = error instanceof Error ? error.message : 'The encrypted file could not be shared.';
+      notice = error instanceof Error ? error.message : 'Export failed.';
     } finally {
       operationLoading = '';
     }
   }
 
   async function importFile(packageFile: File) {
-    operationLoading = 'Decrypting file on server…';
+    operationLoading = 'Opening file…';
     try {
       const response = await fetch('/api/files/import', {
         method: 'POST',
@@ -236,7 +207,7 @@
         body: packageFile
       });
       const body = (await response.json().catch(() => ({}))) as { file?: OfficeFile; error?: string };
-      if (!response.ok || !body.file) throw new Error(body.error || 'Encrypted import failed.');
+      if (!response.ok || !body.file) throw new Error(body.error || 'Import failed.');
       const imported: OfficeFile = {
         ...body.file,
         id: newOfficeFileId(body.file.kind),
@@ -245,9 +216,9 @@
       };
       persist({ ...workspace, files: [imported, ...workspace.files] });
       activeId = imported.id;
-      notice = `${packageFile.name} was decrypted on the server.`;
+      notice = `${packageFile.name} was imported.`;
     } catch (error) {
-      notice = error instanceof Error ? error.message : 'Encrypted import failed.';
+      notice = error instanceof Error ? error.message : 'Import failed.';
     } finally {
       operationLoading = '';
     }
@@ -340,11 +311,11 @@
 
   {#if activeFile}
     {#if activeFile.kind === 'doc'}
-      <Docs file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} onExport={exportFile} onShare={shareFile} />
+      <Docs file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} onExport={exportFile} />
     {:else if activeFile.kind === 'slides'}
-      <Slides file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} onExport={exportFile} onShare={shareFile} />
+      <Slides file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} onExport={exportFile} />
     {:else}
-      <Sheets file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} onExport={exportFile} onShare={shareFile} />
+      <Sheets file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} onExport={exportFile} />
     {/if}
   {:else}
     <div class="shell-grid">
@@ -364,7 +335,7 @@
       </aside>
 
       <main class="main-content">
-        <Home files={workspace.files} {query} onOpen={(file) => (activeId = file.id)} onCreate={create} onDelete={deleteFile} onExport={exportFile} onShare={shareFile} onImport={importFile} onDialog={(request) => (dialogRequest = request)} />
+        <Home files={workspace.files} {query} onOpen={(file) => (activeId = file.id)} onCreate={create} onDelete={deleteFile} onExport={exportFile} onImport={importFile} onDialog={(request) => (dialogRequest = request)} />
       </main>
     </div>
   {/if}

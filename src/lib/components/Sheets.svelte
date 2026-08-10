@@ -8,7 +8,6 @@
   export let onExit: () => void;
   export let onDialog: (request: DialogRequest) => void;
   export let onExport: (file: SheetFile) => void;
-  export let onShare: (file: SheetFile) => void;
 
   const columns = Array.from({ length: 9 }, (_, index) => String.fromCharCode(65 + index));
   const rows = Array.from({ length: 18 }, (_, index) => index + 1);
@@ -34,8 +33,7 @@
       </nav>
     </div>
     <span class="save-state">◆ Saved</span>
-    <button class="export-button" onclick={() => onExport(file)}>Export</button>
-    <button class="share-button sheets-share" onclick={() => onShare(file)}>Share spreadsheet</button>
+    <button class="export-button" onclick={() => onExport(file)}>Export spreadsheet</button>
   </header>
 
   <div class="toolbar sheet-toolbar">

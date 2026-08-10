@@ -10,7 +10,6 @@
   export let onCreate: (kind: Kind) => void;
   export let onDelete: (file: OfficeFile) => void;
   export let onExport: (file: OfficeFile) => void;
-  export let onShare: (file: OfficeFile) => void;
   export let onImport: (file: File) => void;
   export let onDialog: (request: DialogRequest) => void;
 
@@ -43,6 +42,10 @@
     if (selected) onImport(selected);
     input.value = '';
   }
+
+  function exportLabel(kind: Kind) {
+    return kind === 'doc' ? 'Export document' : kind === 'slides' ? 'Export presentation' : 'Export spreadsheet';
+  }
 </script>
 
 <section class="home-view">
@@ -58,7 +61,7 @@
     </button>
     <label class="create-card import-card">
       <input type="file" accept={southbagAccept} onchange={chooseImport} />
-      <span class="paper-icon">⇧</span><strong>Import encrypted file</strong><small>Southbag format only</small>
+      <span class="paper-icon">⇧</span><strong>Import file</strong><small>Southbag format only</small>
     </label>
   </div>
 
@@ -95,8 +98,7 @@
         >•••</button>
         {#if openMenu === file.id}
           <div class="file-menu">
-            <button onclick={() => (openMenu = null, onExport(file))}>Export encrypted</button>
-            <button onclick={() => (openMenu = null, onShare(file))}>Share by email</button>
+            <button onclick={() => (openMenu = null, onExport(file))}>{exportLabel(file.kind)}</button>
             <button onclick={() => remove(file)}>Delete</button>
           </div>
         {/if}

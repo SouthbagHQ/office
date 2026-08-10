@@ -76,7 +76,7 @@ export async function encryptSouthbagFile(fileValue: unknown, encodedKey: string
 
 export async function decryptSouthbagFile(packageBytes: Uint8Array, encodedKey: string): Promise<OfficeFile> {
   if (packageBytes.length < HEADER_BYTES + 16 || packageBytes.length > MAX_PACKAGE_BYTES) {
-    throw new SouthbagFormatError('The encrypted package has an invalid size.');
+    throw new SouthbagFormatError('The package has an invalid size.');
   }
   if (!MAGIC.every((byte, index) => packageBytes[index] === byte)) {
     throw new SouthbagFormatError('This is not a Southbag Office package.');
@@ -93,14 +93,14 @@ export async function decryptSouthbagFile(packageBytes: Uint8Array, encodedKey: 
       ownedBuffer(packageBytes.subarray(HEADER_BYTES))
     );
   } catch {
-    throw new SouthbagFormatError('The package could not be decrypted by this Southbag server.');
+    throw new SouthbagFormatError('The package could not be opened by this Southbag server.');
   }
 
   let archive: Record<string, Uint8Array>;
   try {
     archive = unzipSync(new Uint8Array(archiveBytes));
   } catch {
-    throw new SouthbagFormatError('The decrypted package is not a readable ZIP archive.');
+    throw new SouthbagFormatError('The package is not readable.');
   }
   if (!archive['manifest.json'] || !archive['content.json']) {
     throw new SouthbagFormatError('The package is missing required files.');

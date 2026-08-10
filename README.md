@@ -27,13 +27,13 @@ http://localhost:5173/auth/callback
 
 Then set `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and a long random `SESSION_SECRET` in `.env`.
 
-Encrypted file import and export also requires a server-only 256-bit key. Generate it once and keep the same value for every deployment that must open existing exports:
+Southbag file import and export also requires a server-only 256-bit key. Generate it once and keep the same value for every deployment that must open existing exports:
 
 ```sh
 openssl rand -base64 32
 ```
 
-Put the result in `SOUTHBAG_FILE_KEY` in `.env`. Southbag exports are ZIP archives containing a manifest and the file JSON, then encrypted as one authenticated AES-256-GCM package. The browser never receives the key. Docs, Slides, and Sheets use `.southbagdocs`, `.southbagslides`, and `.southbagsheets` respectively.
+Put the result in `SOUTHBAG_FILE_KEY` in `.env`. The browser never receives the key. Docs, Slides, and Sheets use `.southbagdocs`, `.southbagslides`, and `.southbagsheets` respectively.
 
 ## Checks
 

@@ -21,7 +21,7 @@ describe('Southbag encrypted file format', () => {
     await expect(decryptSouthbagFile(encrypted, key)).rejects.toBeInstanceOf(SouthbagFormatError);
 
     const clean = await encryptSouthbagFile(createFile('doc'), key);
-    await expect(decryptSouthbagFile(clean, otherKey)).rejects.toThrow(/could not be decrypted/);
+    await expect(decryptSouthbagFile(clean, otherKey)).rejects.toThrow(/could not be opened/);
   });
 
   it('requires a 256-bit base64 key', async () => {

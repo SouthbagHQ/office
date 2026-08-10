@@ -6,7 +6,7 @@ import { parseWorkspace } from '$lib/server/workspace';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   if (!locals.user) return json({ error: 'Identity required.' }, { status: 401 });
-  if (!env.SOUTHBAG_FILE_KEY) return json({ error: 'Encrypted file exports are not configured.' }, { status: 503 });
+  if (!env.SOUTHBAG_FILE_KEY) return json({ error: 'File exports are not configured.' }, { status: 503 });
   const contentLength = Number(request.headers.get('content-length') ?? '0');
   if (contentLength > 2_100_000) return json({ error: 'The file is too large to export.' }, { status: 413 });
   const body = (await request.json().catch(() => null)) as { file?: unknown } | null;
@@ -26,7 +26,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       }
     });
   } catch (error) {
-    const message = error instanceof SouthbagFormatError ? error.message : 'The file could not be encrypted.';
+    const message = error instanceof SouthbagFormatError ? error.message : 'The file could not be exported.';
     return json({ error: message }, { status: 500 });
   }
 };
