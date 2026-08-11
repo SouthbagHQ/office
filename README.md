@@ -11,7 +11,7 @@ bun run db:migrate:local
 bun run dev
 ```
 
-Authentication is mandatory for both the editors and workspace API. During `vite dev`, when production OIDC credentials are absent, Office automatically uses its built-in development OAuth/OIDC provider. The provider uses authorization code, S256 PKCE, nonce validation, EdDSA ID tokens, JWKS, and user-info just like the production flow.
+Authentication is mandatory for both the editors and workspace API. On first login, Office dynamically registers a public PKCE client with Southbag Identity and stores its client ID in D1 for later logins.
 
 Development credentials are shown on its login page:
 
@@ -19,13 +19,7 @@ Development credentials are shown on its login page:
 employee@southbag.cc / southbag
 ```
 
-The provider routes return 404 in production builds. To exercise production SSO, create a confidential OAuth app at `https://identity.southbag.cc/developer/apps/new` with this callback:
-
-```text
-http://localhost:5173/auth/callback
-```
-
-Then set `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and a long random `SESSION_SECRET` in `.env`.
+Set a long random `SESSION_SECRET` in `.env`. The built-in provider remains available during development with `USE_DEV_IDP=true`; its routes return 404 in production builds.
 
 Southbag file import and export also requires a server-only 256-bit key. Generate it once and keep the same value for every deployment that must open existing exports:
 
@@ -52,11 +46,9 @@ bun run cf:db:create
 bun run db:migrate:remote
 ```
 
-Register the production callback URL `https://office.southbag.cc/auth/callback` in Southbag Identity. Set Worker secrets without putting them in `wrangler.jsonc`:
+Set Worker secrets without putting them in `wrangler.jsonc`:
 
 ```sh
-bunx wrangler secret put OIDC_CLIENT_ID
-bunx wrangler secret put OIDC_CLIENT_SECRET
 bunx wrangler secret put SESSION_SECRET
 bunx wrangler secret put SOUTHBAG_FILE_KEY
 bun run build

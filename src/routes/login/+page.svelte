@@ -13,7 +13,7 @@
   <section>
     <strong>AUTHORISATION CHECKPOINT</strong>
     {#if data.error === 'unconfigured'}
-      <p class="login-error">The production Identity client is not configured. Development builds use the test OAuth provider automatically.</p>
+      <p class="login-error">Identity registration or session storage is not configured.</p>
     {:else}
       <p>Continue to Southbag Identity™. You will return here if both systems agree.</p>
     {/if}

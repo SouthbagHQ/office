@@ -54,16 +54,15 @@ The normal development server binds to localhost. Only use `bun run dev --host 0
 
 Use `.env.example` as the public template. `.env` and `.env.*` are ignored except for `.env.example`; never commit or print real secrets.
 
-- `OIDC_CLIENT_ID`: production Southbag Identity confidential-client ID. Leave empty in local development to select the built-in identity provider.
-- `OIDC_CLIENT_SECRET`: matching confidential-client secret. Leave empty with the local provider.
+- OAuth clients are dynamically registered with Identity and persisted in D1. `USE_DEV_IDP=true` selects the built-in provider during local development only.
 - `SESSION_SECRET`: long random secret used to HMAC-sign eight-hour session cookies. Set it locally even though development has a fallback.
 - `SOUTHBAG_FILE_KEY`: base64 encoding of exactly 32 random bytes, used only on the server for AES-GCM import/export encryption. Generate with `openssl rand -base64 32`.
 - `ORIGIN`: canonical application origin, normally `http://localhost:5173` locally and `https://office.southbag.cc` in production.
 - `IDENTITY_ORIGIN`: Southbag Identity origin, normally `https://identity.southbag.cc`.
 
-Never expose `SESSION_SECRET`, `OIDC_CLIENT_SECRET`, or `SOUTHBAG_FILE_KEY` through client modules, public environment variables, logs, responses, fixtures, or committed files. Keep the same production `SOUTHBAG_FILE_KEY` across deployments that need to open earlier exports; rotating it makes those packages unreadable.
+Never expose `SESSION_SECRET` or `SOUTHBAG_FILE_KEY` through client modules, public environment variables, logs, responses, fixtures, or committed files. Keep the same production `SOUTHBAG_FILE_KEY` across deployments that need to open earlier exports; rotating it makes those packages unreadable.
 
-When OIDC credentials are absent during `vite dev`, the built-in provider is used. Its development password is `southbag`, and the login screen supplies the example account. The `/dev-idp/**` routes must stay development-only and return `404` in production.
+When `USE_DEV_IDP=true` during `vite dev`, the built-in provider is used. Its development password is `southbag`, and the login screen supplies the example account. The `/dev-idp/**` routes must stay development-only and return `404` in production.
 
 ## Repository map
 

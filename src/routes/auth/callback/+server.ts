@@ -3,10 +3,11 @@ import { dev } from '$app/environment';
 import { setSession, type OfficeUser } from '$lib/server/session';
 import { error, redirect, type RequestHandler } from '@sveltejs/kit';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { oauthClient } from '$lib/server/oauth-client';
 
 type TokenResponse = { access_token?: string; token_type?: string; id_token?: string; error?: string };
 
-export const GET: RequestHandler = async ({ cookies, url, fetch }) => {
+export const GET: RequestHandler = async ({ cookies, url, fetch, platform }) => {
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const expectedState = cookies.get('southbag_office_oauth_state');
@@ -19,23 +20,24 @@ export const GET: RequestHandler = async ({ cookies, url, fetch }) => {
   cookies.delete('southbag_office_oauth_provider', { path: '/' });
 
   if (!code || !state || state !== expectedState || !verifier || !nonce) error(400, 'Identity paperwork did not match.');
-  const useDevelopmentProvider = dev && provider === 'development';
-  const clientId = useDevelopmentProvider ? 'southbag-office-dev' : env.OIDC_CLIENT_ID;
-  const clientSecret = useDevelopmentProvider ? 'southbag-office-dev-secret' : env.OIDC_CLIENT_SECRET;
+  const useDevelopmentProvider = dev && provider === 'development' && env.USE_DEV_IDP === 'true';
   const sessionSecret = env.SESSION_SECRET || (useDevelopmentProvider ? 'southbag-office-development-session-secret-only' : '');
-  if (!clientId || !clientSecret || !sessionSecret) {
+  if (!sessionSecret || (!useDevelopmentProvider && !platform?.env.DB)) {
     error(503, 'Office SSO is missing its deployment secrets.');
   }
 
   const identityOrigin = useDevelopmentProvider ? url.origin : env.IDENTITY_ORIGIN || 'https://identity.southbag.cc';
   const issuer = useDevelopmentProvider ? `${url.origin}/dev-idp` : identityOrigin;
   const appOrigin = useDevelopmentProvider ? url.origin : env.ORIGIN || url.origin;
+  const redirectUri = `${appOrigin}/auth/callback`;
+  const { clientId, clientSecret } = useDevelopmentProvider
+    ? { clientId: 'southbag-office-dev', clientSecret: 'southbag-office-dev-secret' }
+    : await oauthClient(platform!.env.DB, fetch, identityOrigin, redirectUri, appOrigin);
   const tokenEndpoint = new URL(useDevelopmentProvider ? '/dev-idp/token' : '/api/auth/oauth2/token', identityOrigin);
-  const credentials = btoa(`${clientId}:${clientSecret}`);
   const tokenResponse = await fetch(tokenEndpoint, {
     method: 'POST',
     headers: {
-      authorization: `Basic ${credentials}`,
+      ...(clientSecret ? { authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}` } : {}),
       'content-type': 'application/x-www-form-urlencoded',
       // Identity's current SvelteKit CSRF guard rejects standards-compliant
       // server POSTs without a same-origin Origin header.
@@ -43,8 +45,9 @@ export const GET: RequestHandler = async ({ cookies, url, fetch }) => {
     },
     body: new URLSearchParams({
       grant_type: 'authorization_code',
+      client_id: clientId,
       code,
-      redirect_uri: `${appOrigin}/auth/callback`,
+      redirect_uri: redirectUri,
       code_verifier: verifier
     })
   });
