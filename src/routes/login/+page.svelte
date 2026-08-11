@@ -8,16 +8,14 @@
 <main class="login-gate">
   <header>
     <img src="/southbag-logo.png" alt="Southbag" />
-    <div><h1>Office™</h1><p>Identity is required before productivity can be attempted.</p></div>
+    <div><h1>Office™</h1></div>
   </header>
   <section>
-    <strong>AUTHORISATION CHECKPOINT</strong>
     {#if data.error === 'unconfigured'}
       <p class="login-error">Identity registration or session storage is not configured.</p>
     {:else}
       <p>Continue to Southbag Identity™. You will return here if both systems agree.</p>
     {/if}
     <a class="login-submit" href="/auth/login" data-sveltekit-reload>Continue with Southbag Identity™</a>
-    <small>No guest entrance. No local-only identities. No explanation desk.</small>
   </section>
 </main>
