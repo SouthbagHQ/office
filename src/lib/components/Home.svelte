@@ -57,17 +57,17 @@
 <section class="home-view">
   <div class="creation-zone" aria-label="Create a file">
     <button class="create-card docs" onclick={() => requestCreation('doc')}>
-      <span class="paper-icon">¶</span><strong>New document</strong><small>Docs</small>
+      <span class="paper-icon">¶</span><strong>New document</strong>
     </button>
     <button class="create-card slides" onclick={() => requestCreation('slides')}>
-      <span class="paper-icon">▱</span><strong>New presentation</strong><small>Slides</small>
+      <span class="paper-icon">▱</span><strong>New presentation</strong>
     </button>
     <button class="create-card sheets" onclick={() => requestCreation('sheet')}>
-      <span class="paper-icon">⌗</span><strong>New spreadsheet</strong><small>Sheets</small>
+      <span class="paper-icon">⌗</span><strong>New spreadsheet</strong>
     </button>
     <label class="create-card import-card">
       <input type="file" accept={southbagAccept} onchange={chooseImport} />
-      <span class="paper-icon">⇧</span><strong>Import file</strong><small>Southbag format only</small>
+      <span class="paper-icon">⇧</span><strong>Import file</strong>
     </label>
   </div>
 

@@ -297,23 +297,14 @@
       <small>{opening ? 'Synchronizing files' : 'Updating cloud storage'}</small>
     </div>
   {/if}
-  <button
-    class="cloud-status cloud-{syncStatus}"
-    title={syncUpdatedAt ? `Last cloud save ${new Date(syncUpdatedAt).toLocaleString()}` : 'Cloud save status'}
-    onclick={() => (pendingWorkspace = workspace, void flushCloud())}
-  >
-    <i></i><strong>{syncStatus === 'saved' ? 'Saved to cloud' : syncStatus === 'saving' ? 'Saving to cloud…' : syncStatus === 'loading' ? 'Opening cloud…' : syncStatus === 'offline' ? 'Offline — saved here' : 'Cloud needs retry'}</strong>
-    <span>Southbag Identity workspace</span>
-  </button>
   {#if !activeFile}
     <header class="global-header">
       <button class="brand" onclick={() => navigate('home')} aria-label="Southbag Office home">
-        <img src="/southbag-logo.png" alt="Southbag" /><span><strong>Office™</strong><small>WORK PRODUCT / PROBABLY</small></span>
+        <img src="/southbag-logo.png" alt="Southbag" /><span><strong>Office™</strong></span>
       </button>
       <div class="global-search">
         <span>⌕</span><input value={query} oninput={(event) => (query = normalizeKevin(event.currentTarget.value))} aria-label="Search files" placeholder="Search files" /><kbd>⌘?</kbd>
       </div>
-      <button class="waffle" onclick={() => (dialogRequest = { title: 'Southbag Office', message: 'Docs, Slides, and Sheets are available from the left side.' })}>⠿</button>
       {#if data.user}
         <button class="account-button" onclick={() => (showAccount = !showAccount)}><span>{data.user.name.slice(0, 1).toUpperCase()}</span><small>{data.user.name}</small></button>
       {:else}
@@ -342,16 +333,16 @@
       <aside class="app-sidebar">
         <button class="nav-home active" onclick={() => navigate('home')}><span>⌂</span><strong>Files</strong></button>
         <div class="app-nav">
-          <button class="doc-nav" onclick={() => navigate('doc')}><span>¶</span><strong>Docs</strong><small>Write</small></button>
-          <button class="slides-nav" onclick={() => navigate('slides')}><span>▰</span><strong>Slides</strong><small>Present</small></button>
-          <button class="sheet-nav" onclick={() => navigate('sheet')}><span>⌗</span><strong>Sheets</strong><small>Calculate</small></button>
+          <button class="doc-nav" onclick={() => navigate('doc')}><span>¶</span><strong>Docs</strong></button>
+          <button class="slides-nav" onclick={() => navigate('slides')}><span>▰</span><strong>Slides</strong></button>
+          <button class="sheet-nav" onclick={() => navigate('sheet')}><span>⌗</span><strong>Sheets</strong></button>
         </div>
         <div class="sidebar-spacer"></div>
         <button class="storage" onclick={() => (dialogRequest = { title: 'Cloud storage', message: syncStatus === 'saved' ? 'Your files are saved in D1 and cached in this browser.' : 'Your files are cached in this browser and waiting for the cloud.' })}>
           <span class="storage-ring"><i></i></span>
           <span><strong>Cloud storage</strong><small>{syncStatus}</small></span>
         </button>
-        <button class="help-link" onclick={() => (dialogRequest = { title: 'Support', message: 'Create a file, open it, and begin typing. Changes save automatically.' })}>Support</button>
+        <a class="help-link" href="https://support.southbag.cc">Support</a>
       </aside>
 
       <main class="main-content">

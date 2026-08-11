@@ -53,6 +53,11 @@
     updateContent();
   }
 
+  function moveCursor(direction: 'forward' | 'backward', granularity: 'character' | 'word' | 'sentence' | 'line') {
+    page.focus();
+    getSelection()?.modify('move', direction, granularity);
+  }
+
   async function locate() {
     showFind = true;
     await tick();
@@ -62,6 +67,7 @@
   function printDocument() {
     window.print();
   }
+
 </script>
 
 <section class="editor docs-editor">
@@ -90,6 +96,14 @@
     <button onclick={printDocument} title="Print">▣</button>
     <button onclick={() => command('undo')} title="Undo">↷</button>
     <button onclick={() => command('redo')} title="Redo">↶</button>
+    <button onclick={() => moveCursor('backward', 'sentence')} title="Previous sentence">↖</button>
+    <button onclick={() => moveCursor('backward', 'line')} title="Previous line">↑</button>
+    <button onclick={() => moveCursor('backward', 'word')} title="Previous word">↗</button>
+    <button onclick={() => moveCursor('backward', 'character')} title="Previous character">←</button>
+    <button onclick={() => moveCursor('forward', 'character')} title="Next character">→</button>
+    <button onclick={() => moveCursor('forward', 'word')} title="Next word">↙</button>
+    <button onclick={() => moveCursor('forward', 'line')} title="Next line">↓</button>
+    <button onclick={() => moveCursor('forward', 'sentence')} title="Next sentence">↘</button>
     <select aria-label="Zoom" bind:value={zoom}>
       <option value={72}>Probably fit</option><option value={100}>100%</option><option value={125}>Smaller</option>
     </select>
