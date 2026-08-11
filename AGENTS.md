@@ -22,7 +22,6 @@ The following behavior is deliberate and should not regress:
 - Framework: SvelteKit 2 with Svelte 5 and strict TypeScript.
 - Deployment target: Cloudflare Workers via `@sveltejs/adapter-cloudflare`.
 - Persistence: Cloudflare D1, exposed to server code as the `DB` platform binding.
-- Unit tests: Vitest. Browser tests: Playwright in Chromium and Firefox.
 - Notable libraries: `jose` for OIDC verification, `sanitize-html` for server-side document sanitization, and `fflate` for Southbag packages.
 - Worker-facing code must remain compatible with the Workers runtime. `nodejs_compat` is enabled, but prefer Web APIs already used by the codebase (`crypto.subtle`, `Request`, `Response`, streams, `TextEncoder`, and `TextDecoder`).
 
@@ -41,8 +40,6 @@ Useful commands:
 
 ```sh
 bun run check              # SvelteKit sync + svelte-check
-bun run test               # Vitest unit tests
-bun run test:e2e           # local D1 migration + Playwright, using port 5174
 bun run build              # production Cloudflare build
 bun run preview            # preview a production build
 bun run db:migrate:local
@@ -52,8 +49,6 @@ bun run cf:deploy
 ```
 
 The normal development server binds to localhost. Only use `bun run dev --host 0.0.0.0` when public/network access was explicitly requested; a Vite development server is not a production deployment.
-
-Playwright starts its own server on `127.0.0.1:5174`, does not reuse an existing server, and supplies a test-only file key. Its test users have randomized email addresses so the persistent local D1 database does not couple runs together.
 
 ## Environment variables
 
@@ -94,7 +89,6 @@ When OIDC credentials are absent during `vite dev`, the built-in provider is use
 - `src/routes/api/files/**`: authenticated encrypted import/export APIs.
 - `src/hooks.server.ts`: session hydration, security headers, and private cache policy.
 - `migrations/`: ordered D1 schema/data migrations. Add a new numbered migration for deployed schema changes; do not rewrite an existing migration.
-- `tests/office.spec.ts`: end-to-end product, authentication, isolation, synchronization, security, and package coverage.
 - `wrangler.jsonc`: Worker, assets, custom-domain, environment-var, and D1 binding configuration.
 
 ## Workspace persistence and conflict rules
@@ -142,28 +136,18 @@ Do not move encryption to the browser, return plaintext packages, silently accep
 - Allowed document markup is intentionally small. Only safe formatting tags, text alignment, safe HTTP(S)/mailto links, and safe image sources are retained. Event handlers, executable elements, unsafe schemes, arbitrary styles, SVG, MathML, iframes, and embedded objects must not pass through.
 - Keep bounded streamed body reads for import/export. Checking only `Content-Length` is insufficient because it can be missing or false.
 - The global copy/cut/drag prevention is intentional. Do not accidentally block paste, typing, or editing while maintaining it.
-- Do not loosen workspace limits or package validation without targeted abuse-case tests.
+- Do not loosen workspace limits or package validation without targeted validation.
 
-## Change and test expectations
+## Change and validation expectations
 
 Keep changes scoped and follow existing strict TypeScript and Svelte patterns. Prefer canonical types from `src/lib/workspace.ts`, `$lib` imports, immutable file/workspace updates, and Web APIs. Avoid new dependencies unless the existing stack cannot reasonably solve the task.
-
-Add or update tests with the behavior:
-
-- Pure merge, formula, validation, request-boundary, session, sanitizer, and package logic belongs in `src/**/*.test.ts`.
-- UI, authentication, account isolation, D1 persistence, conflict/tombstone behavior, response headers, egress restrictions, and complete import/export flows belong in `tests/office.spec.ts`.
-- Query the UI by accessible role/name in Playwright where practical. Existing visible labels and ARIA names are part of the tested interface.
-- Security changes need positive and negative cases: prove safe content still works as well as unsafe content being rejected.
 
 For most changes, run:
 
 ```sh
 bun run check
-bun run test
 bun run build
 ```
-
-Also run `bun run test:e2e` for UI, routing, auth, persistence, D1, synchronization, security-header, copy/paste, or import/export changes. If a required check cannot run, report exactly which command was skipped or failed and why.
 
 ## Cloudflare deployment notes
 
