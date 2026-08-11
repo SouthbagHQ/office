@@ -159,6 +159,47 @@ test('creates and edits files across the suite', async ({ page }) => {
   expect(nativeDialogs).toEqual([]);
 });
 
+test('capitalizes Kevin throughout the office editors', async ({ page }) => {
+  await signIn(page, newIdentity('kevin'));
+
+  const search = page.getByRole('textbox', { name: 'Search files' });
+  await search.fill('kEvIn');
+  await expect(search).toHaveValue('Kevin');
+
+  await createFromHome(page, 'document');
+  const documentTitle = page.getByRole('textbox', { name: 'Document title' });
+  const documentBody = page.getByRole('textbox', { name: 'Document body' });
+  await documentTitle.fill('KEVIN notes');
+  await documentBody.pressSequentially('Ask kevin and KeViN');
+  await expect(documentTitle).toHaveValue('Kevin notes');
+  await expect(documentBody).toHaveText('Ask Kevin and Kevin');
+  await page.getByRole('button', { name: 'Find' }).click();
+  const find = page.getByPlaceholder('Type a thing');
+  await find.fill('kevin');
+  await expect(find).toHaveValue('Kevin');
+  await page.getByRole('button', { name: 'Back to files' }).click();
+
+  await createFromHome(page, 'presentation');
+  const presentationTitle = page.getByRole('textbox', { name: 'Presentation title' });
+  const slideTitle = page.getByRole('textbox', { name: 'Slide title' });
+  const notes = page.locator('.speaker-notes textarea');
+  await presentationTitle.fill('kevin deck');
+  await slideTitle.pressSequentially('KEVIN presents');
+  await notes.fill('Tell kEvIn');
+  await expect(presentationTitle).toHaveValue('Kevin deck');
+  await expect(slideTitle).toHaveText('Kevin presents');
+  await expect(notes).toHaveValue('Tell Kevin');
+  await page.getByRole('button', { name: 'Back to files' }).click();
+
+  await createFromHome(page, 'spreadsheet');
+  const spreadsheetTitle = page.getByRole('textbox', { name: 'Spreadsheet title' });
+  const cell = page.getByRole('textbox', { name: 'Cell A1', exact: true });
+  await spreadsheetTitle.fill('keVIN ledger');
+  await cell.pressSequentially('kevin');
+  await expect(spreadsheetTitle).toHaveValue('Kevin ledger');
+  await expect(cell).toHaveValue('Kevin');
+});
+
 test('requires authentication, rejects bad development credentials, and isolates accounts', async ({ browser }) => {
   const firstContext = await browser.newContext();
   const first = await firstContext.newPage();

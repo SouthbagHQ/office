@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { DialogRequest } from '$lib/dialog';
   import { sanitizeDocumentHtml } from '$lib/document-html';
+  import { normalizeKevin, normalizeKevinText } from '$lib/kevin';
   import type { DocumentFile } from '$lib/workspace';
   import { tick } from 'svelte';
 
@@ -21,6 +22,7 @@
   $: words = plainText ? plainText.split(' ').length : 0;
 
   function updateContent() {
+    normalizeKevinText(page);
     const content = sanitizeDocumentHtml(page.innerHTML);
     onChange({ ...file, content, modified: new Date().toISOString() });
     savedMessage = 'Saving…';
@@ -70,7 +72,7 @@
         class="file-title-input"
         aria-label="Document title"
         value={file.title}
-        oninput={(event) => onChange({ ...file, title: event.currentTarget.value, modified: new Date().toISOString() })}
+        oninput={(event) => onChange({ ...file, title: normalizeKevin(event.currentTarget.value), modified: new Date().toISOString() })}
       />
       <nav class="menu-strip" aria-label="Document menus">
         <button onclick={() => onDialog({ title: 'File', message: 'This document saves automatically to your cloud workspace.' })}>File</button>
@@ -105,7 +107,7 @@
 
   {#if showFind}
     <div class="find-box">
-      <label>Words you already know <input bind:value={find} placeholder="Type a thing" /></label>
+      <label>Words you already know <input value={find} oninput={(event) => (find = normalizeKevin(event.currentTarget.value))} placeholder="Type a thing" /></label>
       <span>{find && plainText.toLowerCase().includes(find.toLowerCase()) ? 'Located emotionally' : '0-ish of 0-ish'}</span>
       <button onclick={() => (showFind = false)}>Keep open</button>
     </div>

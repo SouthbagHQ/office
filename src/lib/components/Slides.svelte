@@ -1,6 +1,7 @@
 <script lang="ts">
   import EditableText from './EditableText.svelte';
   import type { DialogRequest } from '$lib/dialog';
+  import { normalizeKevin } from '$lib/kevin';
   import type { Slide, SlideFile } from '$lib/workspace';
 
   export let file: SlideFile;
@@ -51,7 +52,7 @@
   <header class="editor-titlebar slides-titlebar">
     <button class="exit-button slides-mark" onclick={onExit} aria-label="Back to files">▰</button>
     <div class="title-stack">
-      <input class="file-title-input" aria-label="Presentation title" value={file.title} oninput={(event) => onChange({ ...file, title: event.currentTarget.value, modified: new Date().toISOString() })} />
+      <input class="file-title-input" aria-label="Presentation title" value={file.title} oninput={(event) => onChange({ ...file, title: normalizeKevin(event.currentTarget.value), modified: new Date().toISOString() })} />
       <nav class="menu-strip" aria-label="Presentation menus">
         <button onclick={() => onDialog({ title: 'File', message: 'This presentation saves automatically to your cloud workspace.' })}>File</button><button onclick={duplicateSlide}>Edit</button><button onclick={cycleTheme}>Theme</button><button onclick={() => (panel = panel === 'design' ? 'nothing' : 'design')}>View</button>
       </nav>
@@ -94,7 +95,7 @@
         <span class="slide-folio">{selected + 1} / {file.slides.length}</span>
       </div>
       <label class="speaker-notes">Speaker notes
-        <textarea value={file.notes} oninput={(event) => onChange({ ...file, notes: event.currentTarget.value, modified: new Date().toISOString() })}></textarea>
+        <textarea value={file.notes} oninput={(event) => onChange({ ...file, notes: normalizeKevin(event.currentTarget.value), modified: new Date().toISOString() })}></textarea>
       </label>
     </main>
 
