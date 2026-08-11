@@ -74,7 +74,7 @@ test('creates and edits files across the suite', async ({ page }) => {
     copyAllowed: element.dispatchEvent(new ClipboardEvent('copy', { bubbles: true, cancelable: true })),
     cutAllowed: element.dispatchEvent(new ClipboardEvent('cut', { bubbles: true, cancelable: true })),
     dragAllowed: element.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true })),
-    pasteAllowed: element.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true }))
+    pasteAllowed: document.body.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true }))
   }));
   expect(egressEvents).toEqual({ copyAllowed: false, cutAllowed: false, dragAllowed: false, pasteAllowed: true });
   await expect(page.getByRole('textbox', { name: 'Document body' })).toHaveText('Cloud memo body');
