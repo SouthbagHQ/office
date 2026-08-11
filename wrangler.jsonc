@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "southbag-office",
+  "account_id": "1044a3131c99356eba069325d3be3788",
   "routes": [
     { "pattern": "office.southbag.cc", "custom_domain": true }
   ],
@@ -19,7 +20,7 @@
     {
       "binding": "DB",
       "database_name": "office",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "4780a38b-f069-4a4b-b9ff-4cd249141ada",
       "migrations_dir": "migrations"
     }
   ]
