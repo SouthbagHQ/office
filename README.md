@@ -39,8 +39,6 @@ Put the result in `SOUTHBAG_FILE_KEY` in `.env`. The browser never receives the 
 
 ```sh
 bun run check
-bun run test
-bun run test:e2e
 bun run build
 ```
 
