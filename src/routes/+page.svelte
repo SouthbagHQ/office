@@ -8,6 +8,7 @@
   import Slides from '$lib/components/Slides.svelte';
   import type { DialogRequest } from '$lib/dialog';
   import { southbagFilename } from '$lib/file-format';
+  import { normalizeKevin } from '$lib/kevin';
   import { createFile, initialWorkspace, newOfficeFileId, type Kind, type OfficeFile, type Workspace } from '$lib/workspace';
   import type { PageData } from './$types';
 
@@ -310,7 +311,7 @@
         <img src="/southbag-logo.png" alt="Southbag" /><span><strong>Office™</strong><small>WORK PRODUCT / PROBABLY</small></span>
       </button>
       <div class="global-search">
-        <span>⌕</span><input bind:value={query} aria-label="Search files" placeholder="Search files" /><kbd>⌘?</kbd>
+        <span>⌕</span><input value={query} oninput={(event) => (query = normalizeKevin(event.currentTarget.value))} aria-label="Search files" placeholder="Search files" /><kbd>⌘?</kbd>
       </div>
       <button class="waffle" onclick={() => (dialogRequest = { title: 'Southbag Office', message: 'Docs, Slides, and Sheets are available from the left side.' })}>⠿</button>
       {#if data.user}
