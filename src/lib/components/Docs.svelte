@@ -81,7 +81,7 @@
         oninput={(event) => onChange({ ...file, title: normalizeKevin(event.currentTarget.value), modified: new Date().toISOString() })}
       />
       <nav class="menu-strip" aria-label="Document menus">
-        <button onclick={() => onDialog({ title: 'File', message: 'This document saves automatically to your cloud workspace.' })}>File</button>
+        <button onclick={() => onDialog({ title: 'File', message: 'This document saves automatically to the Southbag cloud' })}>File</button>
         <button onclick={() => command('undo')}>Edit</button>
         <button onclick={locate}>Find</button>
         <button onclick={() => onDialog({ title: 'Insert', message: 'Choose a formatting control from the toolbar.' })}>Insert</button>

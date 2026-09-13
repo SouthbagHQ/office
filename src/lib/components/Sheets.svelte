@@ -30,7 +30,7 @@
     <div class="title-stack">
       <input class="file-title-input" aria-label="Spreadsheet title" value={file.title} oninput={(event) => onChange({ ...file, title: normalizeKevin(event.currentTarget.value), modified: new Date().toISOString() })} />
       <nav class="menu-strip" aria-label="Spreadsheet menus">
-        <button onclick={() => onDialog({ title: 'File', message: 'This spreadsheet saves automatically to your cloud workspace.' })}>File</button><button onclick={() => onDialog({ title: 'Edit cells', message: 'Select a cell, then type in the cell or formula bar.' })}>Edit</button><button onclick={() => (showRaw = !showRaw)}>{showRaw ? 'Show values' : 'Show formulas'}</button><button onclick={() => (showChart = !showChart)}>{showChart ? 'Hide chart' : 'Show chart'}</button>
+        <button onclick={() => onDialog({ title: 'File', message: 'This spreadsheet saves automatically to the Southbag cloud.' })}>File</button><button onclick={() => onDialog({ title: 'Edit cells', message: 'Select a cell, then type in the cell or formula bar.' })}>Edit</button><button onclick={() => (showRaw = !showRaw)}>{showRaw ? 'Show values' : 'Show formulas'}</button><button onclick={() => (showChart = !showChart)}>{showChart ? 'Hide chart' : 'Show chart'}</button>
       </nav>
     </div>
     <span class="save-state">◆ Saved</span>

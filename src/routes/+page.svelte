@@ -338,7 +338,7 @@
           <button class="sheet-nav" onclick={() => navigate('sheet')}><span>⌗</span><strong>Sheets</strong></button>
         </div>
         <div class="sidebar-spacer"></div>
-        <button class="storage" onclick={() => (dialogRequest = { title: 'Cloud storage', message: syncStatus === 'saved' ? 'Your files are saved in D1 and cached in this browser.' : 'Your files are cached in this browser and waiting for the cloud.' })}>
+        <button class="storage" onclick={() => (dialogRequest = { title: 'Cloud storage', message: syncStatus === 'saved' ? 'Your files are saved' : 'Your files are cached in this browser and waiting for the cloud.' })}>
           <span class="storage-ring"><i></i></span>
           <span><strong>Cloud storage</strong><small>{syncStatus}</small></span>
         </button>

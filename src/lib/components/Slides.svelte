@@ -54,7 +54,7 @@
     <div class="title-stack">
       <input class="file-title-input" aria-label="Presentation title" value={file.title} oninput={(event) => onChange({ ...file, title: normalizeKevin(event.currentTarget.value), modified: new Date().toISOString() })} />
       <nav class="menu-strip" aria-label="Presentation menus">
-        <button onclick={() => onDialog({ title: 'File', message: 'This presentation saves automatically to your cloud workspace.' })}>File</button><button onclick={duplicateSlide}>Edit</button><button onclick={cycleTheme}>Theme</button><button onclick={() => (panel = panel === 'design' ? 'nothing' : 'design')}>View</button>
+        <button onclick={() => onDialog({ title: 'File', message: 'This presentation saves automatically to the Southbag Cloud.' })}>File</button><button onclick={duplicateSlide}>Edit</button><button onclick={cycleTheme}>Theme</button><button onclick={() => (panel = panel === 'design' ? 'nothing' : 'design')}>View</button>
       </nav>
     </div>
     <span class="save-state">▲ Saved</span>
