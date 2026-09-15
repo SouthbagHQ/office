@@ -50,7 +50,7 @@
     loaded = true;
     const params = new URLSearchParams(location.search);
     if (params.get('auth') === 'unconfigured') notice = 'SSO exists but this deployment forgot its client credentials.';
-    if (params.has('signed-in')) notice = 'Signed in. Cloud storage connected.';
+    if (params.has('signed-in')) notice = 'Signed in. Connected to the Southbag Cloud.';
 
     void openWorkspace(localStorage.getItem(storageKey('dirty')) === 'true');
     const flushBeforeLeaving = () => {
@@ -81,7 +81,7 @@
     }
     try {
       const response = await fetch('/api/workspace');
-      if (!response.ok) throw new Error('cloud load failed');
+      if (!response.ok) throw new Error('Could not load from the Southbag Cloud');
       const cloud = (await response.json()) as Omit<CloudWorkspace, 'workspace'> & { workspace: Workspace | null };
       if (!cloud.workspace) {
         pendingWorkspace = workspace;
@@ -135,7 +135,7 @@
         });
         cloud = (await response.json().catch(() => ({}))) as Partial<CloudWorkspace>;
       }
-      if (!response.ok || typeof cloud.revision !== 'number') throw new Error('cloud save failed');
+      if (!response.ok || typeof cloud.revision !== 'number') throw new Error('Could not save to the Southbag Cloud');
       syncRevision = cloud.revision;
       syncUpdatedAt = cloud.updatedAt ?? new Date().toISOString();
       localStorage.setItem(storageKey('revision'), String(syncRevision));
@@ -294,7 +294,7 @@
     <div class="product-loader" role="status">
       <img src="/southbag-logo.png" alt="" />
       <p>{operationLoading || 'Opening workspace…'}</p>
-      <small>{opening ? 'Synchronizing files' : 'Updating cloud storage'}</small>
+      <small>{opening ? 'Synchronizing files' : 'Syncing to the Southbag Cloud'}</small>
     </div>
   {/if}
   {#if !activeFile}
@@ -338,9 +338,9 @@
           <button class="sheet-nav" onclick={() => navigate('sheet')}><span>⌗</span><strong>Sheets</strong></button>
         </div>
         <div class="sidebar-spacer"></div>
-        <button class="storage" onclick={() => (dialogRequest = { title: 'Cloud storage', message: syncStatus === 'saved' ? 'Your files are saved' : 'Your files are cached in this browser and waiting for the cloud.' })}>
+        <button class="storage" onclick={() => (dialogRequest = { title: 'Southbag Cloud', message: syncStatus === 'saved' ? 'Your files are saved' : 'Your files are saved and waiting to sync.' })}>
           <span class="storage-ring"><i></i></span>
-          <span><strong>Cloud storage</strong><small>{syncStatus}</small></span>
+          <span><strong>Southbag Cloud</strong><small>{syncStatus}</small></span>
         </button>
         <a class="help-link" href="https://support.southbag.cc">Support</a>
       </aside>

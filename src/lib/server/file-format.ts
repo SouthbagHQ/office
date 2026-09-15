@@ -93,7 +93,7 @@ export async function decryptSouthbagFile(packageBytes: Uint8Array, encodedKey: 
       ownedBuffer(packageBytes.subarray(HEADER_BYTES))
     );
   } catch {
-    throw new SouthbagFormatError('The package could not be opened by this Southbag server.');
+    throw new SouthbagFormatError('This file could not be opened.');
   }
 
   let archive: Record<string, Uint8Array>;

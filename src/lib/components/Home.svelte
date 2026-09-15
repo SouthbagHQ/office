@@ -35,7 +35,7 @@
     const label = kind === 'doc' ? 'document' : kind === 'slides' ? 'presentation' : 'spreadsheet';
     onDialog({
       title: `Create new ${label}?`,
-      message: `A blank ${label} will be created in your cloud workspace.`,
+      message: `A blank ${label} will be created in the Southbag Cloud.`,
       confirmLabel: 'Create',
       cancelLabel: 'Cancel',
       onConfirm: () => onCreate(kind)

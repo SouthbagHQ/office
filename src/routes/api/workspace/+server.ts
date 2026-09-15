@@ -10,7 +10,7 @@ function database(platform: App.Platform | undefined): D1Database | null {
 export const GET: RequestHandler = async ({ platform, locals }) => {
   if (!locals.user) return json({ error: 'Identity required.' }, { status: 401 });
   const db = database(platform);
-  if (!db) return json({ error: 'Cloud filing cabinet unavailable.' }, { status: 503 });
+  if (!db) return json({ error: 'The Southbag Cloud is unavailable.' }, { status: 503 });
   const owner = workspaceOwner(locals.user);
   const row = await db
     .prepare('SELECT data, revision, updated_at FROM workspaces WHERE owner_key = ?')
@@ -19,21 +19,21 @@ export const GET: RequestHandler = async ({ platform, locals }) => {
 
   if (!row) return json({ workspace: null, revision: 0, updatedAt: '' });
   const stored = rowToWorkspace(row);
-  return stored ? json(stored) : json({ error: 'Cloud workspace is unreadable.' }, { status: 500 });
+  return stored ? json(stored) : json({ error: 'Your workspace could not be read.' }, { status: 500 });
 };
 
 export const PUT: RequestHandler = async ({ request, platform, locals }) => {
   if (!locals.user) return json({ error: 'Identity required.' }, { status: 401 });
   const db = database(platform);
-  if (!db) return json({ error: 'Cloud filing cabinet unavailable.' }, { status: 503 });
+  if (!db) return json({ error: 'The Southbag Cloud is unavailable.' }, { status: 503 });
   const contentLength = Number(request.headers.get('content-length') ?? '0');
-  if (contentLength > 2_100_000) return json({ error: 'Workspace is too furnished.' }, { status: 413 });
+  if (contentLength > 2_100_000) return json({ error: 'Your workspace is too large.' }, { status: 413 });
   const body = (await request.json().catch(() => null)) as {
     workspace?: unknown;
     expectedRevision?: unknown;
   } | null;
   const workspace = parseWorkspace(body?.workspace);
-  if (!workspace) return json({ error: 'Workspace refused to resemble a workspace.' }, { status: 400 });
+  if (!workspace) return json({ error: 'Your workspace could not be read.' }, { status: 400 });
 
   const owner = workspaceOwner(locals.user);
   const existing = await db
@@ -44,10 +44,10 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 
   if (existing && existing.revision !== expectedRevision) {
     const stored = rowToWorkspace(existing);
-    return json({ error: 'Someone saved in front of you.', ...stored }, { status: 409 });
+    return json({ error: 'Someone else saved first. Please try again.', ...stored }, { status: 409 });
   }
   if (!existing && expectedRevision !== 0) {
-    return json({ error: 'The expected cloud workspace has moved.' }, { status: 409 });
+    return json({ error: 'Your workspace has moved.' }, { status: 409 });
   }
 
   const updatedAt = new Date().toISOString();
