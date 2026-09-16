@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PageData } from './$types';
+  import { track } from '$lib/palantir';
   export let data: PageData;
 </script>
 
@@ -16,6 +17,6 @@
     {:else}
       <p>Continue to Southbag Identity™. You will return here if both systems agree.</p>
     {/if}
-    <a class="login-submit" href="/auth/login" data-sveltekit-reload>Continue with Southbag Identity™</a>
+    <a class="login-submit" href="/auth/login" data-sveltekit-reload onclick={() => track('office_login_clicked', { from: 'login_gate', error: data.error })}>Continue with Southbag Identity™</a>
   </section>
 </main>

@@ -5,6 +5,7 @@ declare global {
         DB: D1Database;
         SOUTHBAG_FILE_KEY?: string;
       };
+      context?: { waitUntil(promise: Promise<unknown>): void };
     }
     interface Locals {
       user: {
@@ -14,6 +15,19 @@ declare global {
         picture?: string;
       } | null;
     }
+  }
+
+  interface Window {
+    /** Southbag's PostHog wiring, defined by /palantir.js. */
+    palantir?: {
+      capture(event: string, properties?: Record<string, unknown>): void;
+      identify(user: { id: string; email?: string; name?: string }): void;
+      reset(): void;
+    };
+    posthog?: {
+      register(properties: Record<string, unknown>): void;
+      __loaded?: boolean;
+    };
   }
 }
 

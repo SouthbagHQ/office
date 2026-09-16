@@ -3,6 +3,7 @@
   import { southbagAccept } from '$lib/file-format';
   import type { Kind, OfficeFile } from '$lib/workspace';
   import { kindLabel } from '$lib/workspace';
+  import { track } from '$lib/palantir';
 
   export let files: OfficeFile[];
   export let query: string;
@@ -33,6 +34,7 @@
 
   function requestCreation(kind: Kind) {
     const label = kind === 'doc' ? 'document' : kind === 'slides' ? 'presentation' : 'spreadsheet';
+    track('office_create_requested', { kind });
     onDialog({
       title: `Create new ${label}?`,
       message: `A blank ${label} will be created in the Southbag Cloud.`,
@@ -46,7 +48,19 @@
     const input = event.currentTarget as HTMLInputElement;
     const selected = input.files?.[0];
     if (selected) onImport(selected);
+    else track('office_import_cancelled');
     input.value = '';
+  }
+
+  function toggleSort() {
+    ascending = !ascending;
+    track('office_sort_toggled', { order: ascending ? 'oldest_first' : 'newest_first', files: files.length });
+  }
+
+  function toggleMenu(file: OfficeFile) {
+    const opening = openMenu !== file.id;
+    openMenu = opening ? file.id : null;
+    if (opening) track('office_file_menu_opened', { kind: file.kind });
   }
 
   function exportLabel(kind: Kind) {
@@ -66,14 +80,14 @@
       <span class="paper-icon">⌗</span><strong>New spreadsheet</strong>
     </button>
     <label class="create-card import-card">
-      <input type="file" accept={southbagAccept} onchange={chooseImport} />
+      <input type="file" accept={southbagAccept} onclick={() => track('office_import_picker_opened')} onchange={chooseImport} />
       <span class="paper-icon">⇧</span><strong>Import file</strong>
     </label>
   </div>
 
   <div class="file-controls">
     <button class="delete-all-files" disabled={!files.length} onclick={onDeleteAll}>Delete all files</button>
-    <button aria-label={ascending ? 'Newest first' : 'Oldest first'} onclick={() => (ascending = !ascending)}>↕</button>
+    <button aria-label={ascending ? 'Newest first' : 'Oldest first'} onclick={toggleSort}>↕</button>
     <span>{visible.length}</span>
   </div>
 
@@ -101,7 +115,7 @@
           class="file-menu-button"
           aria-label={`Actions for ${file.title}`}
           aria-expanded={openMenu === file.id}
-          onclick={() => (openMenu = openMenu === file.id ? null : file.id)}
+          onclick={() => toggleMenu(file)}
         >•••</button>
         {#if openMenu === file.id}
           <div class="file-menu">

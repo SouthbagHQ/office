@@ -4,6 +4,7 @@
   import { normalizeKevin, normalizeKevinText } from '$lib/kevin';
   import type { DocumentFile } from '$lib/workspace';
   import { tick } from 'svelte';
+  import { track } from '$lib/palantir';
 
   export let file: DocumentFile;
   export let onChange: (file: DocumentFile) => void;
@@ -38,12 +39,14 @@
 
   function pasteContent(event: ClipboardEvent) {
     event.preventDefault();
+    track('office_doc_pasted', { rich: Boolean(event.clipboardData?.getData('text/html')), words });
     insertTransferredContent(event.clipboardData);
   }
 
   function dropContent(event: DragEvent) {
     event.preventDefault();
     page.focus();
+    track('office_doc_dropped', { rich: Boolean(event.dataTransfer?.getData('text/html')), words });
     insertTransferredContent(event.dataTransfer);
   }
 
@@ -51,21 +54,50 @@
     page.focus();
     document.execCommand(name, false, value);
     updateContent();
+    track('office_format', { editor: 'doc', action: name, ...(value ? { value } : {}), words });
   }
 
   function moveCursor(direction: 'forward' | 'backward', granularity: 'character' | 'word' | 'sentence' | 'line') {
     page.focus();
     getSelection()?.modify('move', direction, granularity);
+    track('office_doc_cursor_moved', { direction, granularity });
   }
 
   async function locate() {
     showFind = true;
+    track('office_doc_find_opened', { words });
     await tick();
     (document.querySelector('.find-box input') as HTMLInputElement)?.focus();
   }
 
   function printDocument() {
+    track('office_doc_print', { words });
     window.print();
+  }
+
+  function setZoom(next: number, source: string) {
+    zoom = next;
+    track('office_doc_zoom_changed', { zoom, source });
+  }
+
+  function menu(name: string, action: () => void) {
+    track('office_doc_menu', { menu: name });
+    action();
+  }
+
+  function renameDocument(title: string) {
+    track('office_file_renamed', { kind: 'doc', title_length: title.length });
+  }
+
+  let findTimer: number | undefined;
+  function findTyped(value: string) {
+    find = normalizeKevin(value);
+    if (findTimer) window.clearTimeout(findTimer);
+    if (!find) return;
+    findTimer = window.setTimeout(
+      () => track('office_doc_find', { query_length: find.length, found: plainText.toLowerCase().includes(find.toLowerCase()) }),
+      800
+    );
   }
 
 </script>
@@ -79,13 +111,14 @@
         aria-label="Document title"
         value={file.title}
         oninput={(event) => onChange({ ...file, title: normalizeKevin(event.currentTarget.value), modified: new Date().toISOString() })}
+        onchange={(event) => renameDocument(event.currentTarget.value)}
       />
       <nav class="menu-strip" aria-label="Document menus">
-        <button onclick={() => onDialog({ title: 'File', message: 'This document saves automatically to the Southbag cloud' })}>File</button>
-        <button onclick={() => command('undo')}>Edit</button>
-        <button onclick={locate}>Find</button>
-        <button onclick={() => onDialog({ title: 'Insert', message: 'Choose a formatting control from the toolbar.' })}>Insert</button>
-        <button onclick={() => (zoom = zoom === 100 ? 82 : 100)}>View</button>
+        <button onclick={() => menu('file', () => onDialog({ title: 'File', message: 'This document saves automatically to the Southbag cloud' }))}>File</button>
+        <button onclick={() => menu('edit', () => command('undo'))}>Edit</button>
+        <button onclick={() => menu('find', locate)}>Find</button>
+        <button onclick={() => menu('insert', () => onDialog({ title: 'Insert', message: 'Choose a formatting control from the toolbar.' }))}>Insert</button>
+        <button onclick={() => menu('view', () => setZoom(zoom === 100 ? 82 : 100, 'view_menu'))}>View</button>
       </nav>
     </div>
     <span class="save-state">● {savedMessage}</span>
@@ -104,7 +137,7 @@
     <button onclick={() => moveCursor('forward', 'word')} title="Next word">↙</button>
     <button onclick={() => moveCursor('forward', 'line')} title="Next line">↓</button>
     <button onclick={() => moveCursor('forward', 'sentence')} title="Next sentence">↘</button>
-    <select aria-label="Zoom" bind:value={zoom}>
+    <select aria-label="Zoom" value={zoom} onchange={(event) => setZoom(Number(event.currentTarget.value), 'zoom_select')}>
       <option value={72}>Probably fit</option><option value={100}>100%</option><option value={125}>Smaller</option>
     </select>
     <span class="toolbar-divider"></span>
@@ -116,14 +149,14 @@
     <button onclick={() => command('underline')} title="Underline">U̲</button>
     <button onclick={() => command('insertUnorderedList')} title="Bulleted list">⋮≡</button>
     <button class="tiny-action" onclick={() => command('justifyCenter')}>center legally</button>
-    <button class="toolbar-help" onclick={() => onDialog({ title: 'Document help', message: 'Type on the page. Changes save automatically.' })}>?</button>
+    <button class="toolbar-help" onclick={() => (track('office_doc_help_opened', { words }), onDialog({ title: 'Document help', message: 'Type on the page. Changes save automatically.' }))}>?</button>
   </div>
 
   {#if showFind}
     <div class="find-box">
-      <label>Words you already know <input value={find} oninput={(event) => (find = normalizeKevin(event.currentTarget.value))} placeholder="Type a thing" /></label>
+      <label>Words you already know <input value={find} oninput={(event) => findTyped(event.currentTarget.value)} placeholder="Type a thing" /></label>
       <span>{find && plainText.toLowerCase().includes(find.toLowerCase()) ? 'Located emotionally' : '0-ish of 0-ish'}</span>
-      <button onclick={() => (showFind = false)}>Keep open</button>
+      <button onclick={() => (track('office_doc_find_closed'), (showFind = false))}>Keep open</button>
     </div>
   {/if}
 
@@ -145,6 +178,6 @@
     >{@html initialContent}</div>
   </div>
   <footer class="editor-status">
-    <span>PAGE 1 OF 1</span><span>{words} words / {plainText.length} characters</span><span>ENGLISH</span><span class="status-grow"></span><button onclick={() => (zoom = Math.max(50, zoom - 10))}>−</button><strong>{zoom}%</strong><button onclick={() => (zoom = Math.min(160, zoom + 10))}>＋</button>
+    <span>PAGE 1 OF 1</span><span>{words} words / {plainText.length} characters</span><span>ENGLISH</span><span class="status-grow"></span><button onclick={() => setZoom(Math.max(50, zoom - 10), 'status_minus')}>−</button><strong>{zoom}%</strong><button onclick={() => setZoom(Math.min(160, zoom + 10), 'status_plus')}>＋</button>
   </footer>
 </section>

@@ -9,6 +9,7 @@
   import type { DialogRequest } from '$lib/dialog';
   import { southbagFilename } from '$lib/file-format';
   import { normalizeKevin } from '$lib/kevin';
+  import { track } from '$lib/palantir';
   import { createFile, initialWorkspace, newOfficeFileId, type Kind, type OfficeFile, type Workspace } from '$lib/workspace';
   import type { PageData } from './$types';
 
@@ -22,15 +23,24 @@
   let operationLoading = '';
   let notice = '';
   let showAccount = false;
-  let syncStatus: 'loading' | 'saving' | 'saved' | 'offline' | 'error' = 'loading';
+  type SyncStatus = 'loading' | 'saving' | 'saved' | 'offline' | 'error';
+  let syncStatus: SyncStatus = 'loading';
   let syncRevision = 0;
   let syncUpdatedAt = '';
   let saveTimer: number | undefined;
   let pendingWorkspace: Workspace | null = null;
   let saveInFlight = false;
   let dialogRequest: DialogRequest | null = null;
+  let searchTimer: number | undefined;
+  let lastSyncStatus: SyncStatus | undefined;
 
   $: activeFile = workspace.files.find((file) => file.id === activeId) ?? null;
+  // Sync status transitions are worth a trace; steady states aren't.
+  $: if (loaded && syncStatus !== lastSyncStatus) {
+    if (syncStatus === 'error' || syncStatus === 'offline') track('office_sync_failed', { status: syncStatus, online: navigator.onLine });
+    else if (syncStatus === 'saved' && (lastSyncStatus === 'error' || lastSyncStatus === 'offline')) track('office_sync_recovered');
+    lastSyncStatus = syncStatus;
+  }
 
   function storageKey(name: string) {
     return `southbag-office-v2-${data.user?.sub ?? 'blocked'}-${name}`;
@@ -43,6 +53,7 @@
         workspace = JSON.parse(saved) as Workspace;
       } catch {
         notice = 'The local workspace could not be opened.';
+        track('office_local_workspace_corrupt');
       }
     }
     syncRevision = Number(localStorage.getItem(storageKey('revision')) ?? '0') || 0;
@@ -51,6 +62,11 @@
     const params = new URLSearchParams(location.search);
     if (params.get('auth') === 'unconfigured') notice = 'SSO exists but this deployment forgot its client credentials.';
     if (params.has('signed-in')) notice = 'Signed in. Connected to the Southbag Cloud.';
+    track('office_workspace_opened', {
+      local_files: workspace.files.length,
+      local_dirty: localStorage.getItem(storageKey('dirty')) === 'true',
+      just_signed_in: params.has('signed-in')
+    });
 
     void openWorkspace(localStorage.getItem(storageKey('dirty')) === 'true');
     const flushBeforeLeaving = () => {
@@ -124,6 +140,13 @@
       let cloud = (await response.json().catch(() => ({}))) as Partial<CloudWorkspace>;
       if (response.status === 409 && cloud.workspace && typeof cloud.revision === 'number') {
         const merged = mergeWorkspaces(sending, cloud.workspace);
+        track('office_sync_conflict_merged', {
+          local_files: sending.files.length,
+          cloud_files: cloud.workspace.files.length,
+          merged_files: merged.files.length,
+          local_revision: syncRevision,
+          cloud_revision: cloud.revision
+        });
         workspace = merged;
         localStorage.setItem(storageKey('workspace-v1'), JSON.stringify(merged));
         syncRevision = cloud.revision;
@@ -188,12 +211,15 @@
 
   async function exportFile(file: OfficeFile) {
     operationLoading = 'Preparing export…';
+    track('office_file_export_requested', { kind: file.kind });
     try {
       const exported = await encryptedFile(file);
       downloadBlob(exported.blob, exported.filename);
       notice = `${exported.filename} was exported.`;
+      track('office_file_downloaded', { kind: file.kind, bytes: exported.blob.size });
     } catch (error) {
       notice = error instanceof Error ? error.message : 'Export failed.';
+      track('office_file_export_error', { kind: file.kind, message: notice });
     } finally {
       operationLoading = '';
     }
@@ -201,6 +227,7 @@
 
   async function importFile(packageFile: File) {
     operationLoading = 'Opening file…';
+    track('office_file_import_requested', { bytes: packageFile.size, type: packageFile.type || 'unknown' });
     try {
       const response = await fetch('/api/files/import', {
         method: 'POST',
@@ -218,8 +245,10 @@
       persist({ ...workspace, files: [imported, ...workspace.files] });
       activeId = imported.id;
       notice = `${packageFile.name} was imported.`;
+      track('office_file_import_opened', { kind: imported.kind, bytes: packageFile.size });
     } catch (error) {
       notice = error instanceof Error ? error.message : 'Import failed.';
+      track('office_file_import_error', { bytes: packageFile.size, message: notice });
     } finally {
       operationLoading = '';
     }
@@ -232,9 +261,25 @@
     persist({ ...workspace, files: [next, ...workspace.files] });
     activeId = next.id;
     operationLoading = '';
+    track('office_file_created', { kind, total_files: workspace.files.length });
+  }
+
+  function openFile(file: OfficeFile) {
+    activeId = file.id;
+    track('office_file_opened', {
+      kind: file.kind,
+      title_length: file.title.length,
+      age_ms: Date.now() - new Date(file.modified).getTime()
+    });
+  }
+
+  function closeFile(file: OfficeFile) {
+    activeId = null;
+    track('office_file_closed', { kind: file.kind });
   }
 
   async function deleteFile(file: OfficeFile) {
+    track('office_file_deleted', { kind: file.kind, remaining_files: workspace.files.length - 1 });
     persist({
       ...workspace,
       files: workspace.files.filter((item) => item.id !== file.id),
@@ -247,6 +292,7 @@
 
   async function deleteAllFiles() {
     if (!workspace.files.length) return;
+    track('office_all_files_deleted', { count: workspace.files.length });
     persist({
       ...workspace,
       files: [],
@@ -260,22 +306,51 @@
   function navigate(kind: Kind | 'home') {
     if (kind === 'home') {
       activeId = null;
+      track('office_nav', { destination: 'home' });
       return;
     }
     const existing = workspace.files.find((file) => file.kind === kind);
-    if (existing) activeId = existing.id;
+    // The sidebar app buttons open the newest file of that kind — or create one. Either way,
+    // the person never picked which. That is the product.
+    track('office_nav', { destination: kind, opened_existing: Boolean(existing) });
+    if (existing) openFile(existing);
     else create(kind);
+  }
+
+  function search(value: string) {
+    query = normalizeKevin(value);
+    if (searchTimer) window.clearTimeout(searchTimer);
+    if (!query) return;
+    // Search never finds anything; the interesting number is how many people keep trying.
+    searchTimer = window.setTimeout(() => track('office_search', { query_length: query.length, results: 0 }), 800);
+  }
+
+  function toggleAccount() {
+    showAccount = !showAccount;
+    if (showAccount) track('office_account_popover_opened');
+  }
+
+  function openDialog(request: DialogRequest) {
+    dialogRequest = request;
+    track('office_dialog_opened', { title: request.title, has_confirm: Boolean(request.onConfirm) });
   }
 
   function closeDialog(confirmed: boolean) {
     const request = dialogRequest;
     dialogRequest = null;
+    if (request) track('office_dialog_closed', { title: request.title, confirmed, has_confirm: Boolean(request.onConfirm) });
     if (confirmed) request?.onConfirm?.();
   }
 
   function blockContentEgress(event: ClipboardEvent | DragEvent) {
     event.preventDefault();
     event.stopPropagation();
+    track('office_content_egress_blocked', { action: event.type, editor: activeFile?.kind ?? 'home' });
+  }
+
+  function dismissNotice() {
+    track('office_notice_dismissed', { notice });
+    notice = '';
   }
 </script>
 
@@ -303,30 +378,30 @@
         <img src="/southbag-logo.png" alt="Southbag" /><span><strong>Office™</strong></span>
       </button>
       <div class="global-search">
-        <span>⌕</span><input value={query} oninput={(event) => (query = normalizeKevin(event.currentTarget.value))} aria-label="Search files" placeholder="Search files" /><kbd>⌘?</kbd>
+        <span>⌕</span><input value={query} oninput={(event) => search(event.currentTarget.value)} aria-label="Search files" placeholder="Search files" /><kbd>⌘?</kbd>
       </div>
       {#if data.user}
-        <button class="account-button" onclick={() => (showAccount = !showAccount)}><span>{data.user.name.slice(0, 1).toUpperCase()}</span><small>{data.user.name}</small></button>
+        <button class="account-button" onclick={toggleAccount}><span>{data.user.name.slice(0, 1).toUpperCase()}</span><small>{data.user.name}</small></button>
       {:else}
-        <a class="identity-button" href="/auth/login" data-sveltekit-reload><span class="identity-dot">S</span> Sign in after entering</a>
+        <a class="identity-button" href="/auth/login" data-sveltekit-reload onclick={() => track('office_login_clicked', { from: 'header' })}><span class="identity-dot">S</span> Sign in after entering</a>
       {/if}
       {#if showAccount && data.user}
-        <div class="account-popover"><strong>{data.user.name}</strong><span>{data.user.email}</span><p>Authenticated by Southbag Identity™</p><a href="/auth/logout" data-sveltekit-reload>Stay signed in (sign out)</a></div>
+        <div class="account-popover"><strong>{data.user.name}</strong><span>{data.user.email}</span><p>Authenticated by Southbag Identity™</p><a href="/auth/logout" data-sveltekit-reload onclick={() => track('office_logout_clicked')}>Stay signed in (sign out)</a></div>
       {/if}
     </header>
   {/if}
 
   {#if notice}
-    <div class="notice">{notice}<button onclick={() => (notice = '')}>×</button></div>
+    <div class="notice">{notice}<button onclick={dismissNotice}>×</button></div>
   {/if}
 
   {#if activeFile}
     {#if activeFile.kind === 'doc'}
-      <Docs file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} onExport={exportFile} />
+      <Docs file={activeFile} onChange={updateFile} onExit={() => closeFile(activeFile!)} onDialog={openDialog} onExport={exportFile} />
     {:else if activeFile.kind === 'slides'}
-      <Slides file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} onExport={exportFile} />
+      <Slides file={activeFile} onChange={updateFile} onExit={() => closeFile(activeFile!)} onDialog={openDialog} onExport={exportFile} />
     {:else}
-      <Sheets file={activeFile} onChange={updateFile} onExit={() => (activeId = null)} onDialog={(request) => (dialogRequest = request)} onExport={exportFile} />
+      <Sheets file={activeFile} onChange={updateFile} onExit={() => closeFile(activeFile!)} onDialog={openDialog} onExport={exportFile} />
     {/if}
   {:else}
     <div class="shell-grid">
@@ -338,15 +413,15 @@
           <button class="sheet-nav" onclick={() => navigate('sheet')}><span>⌗</span><strong>Sheets</strong></button>
         </div>
         <div class="sidebar-spacer"></div>
-        <button class="storage" onclick={() => (dialogRequest = { title: 'Southbag Cloud', message: syncStatus === 'saved' ? 'Your files are saved' : 'Your files are saved and waiting to sync.' })}>
+        <button class="storage" onclick={() => (track('office_cloud_status_clicked', { status: syncStatus }), openDialog({ title: 'Southbag Cloud', message: syncStatus === 'saved' ? 'Your files are saved' : 'Your files are saved and waiting to sync.' }))}>
           <span class="storage-ring"><i></i></span>
           <span><strong>Southbag Cloud</strong><small>{syncStatus}</small></span>
         </button>
-        <a class="help-link" href="https://support.southbag.cc">Support</a>
+        <a class="help-link" href="https://support.southbag.cc" onclick={() => track('office_support_clicked')}>Support</a>
       </aside>
 
       <main class="main-content">
-        <Home files={workspace.files} {query} onOpen={(file) => (activeId = file.id)} onCreate={create} onDelete={deleteFile} onDeleteAll={deleteAllFiles} onExport={exportFile} onImport={importFile} onDialog={(request) => (dialogRequest = request)} />
+        <Home files={workspace.files} {query} onOpen={openFile} onCreate={create} onDelete={deleteFile} onDeleteAll={deleteAllFiles} onExport={exportFile} onImport={importFile} onDialog={openDialog} />
       </main>
     </div>
   {/if}

@@ -2,6 +2,7 @@ import { env } from '$env/dynamic/private';
 import { dev } from '$app/environment';
 import { redirect, type RequestHandler } from '@sveltejs/kit';
 import { oauthClient } from '$lib/server/oauth-client';
+import { capture, palantirOptions } from '$lib/server/palantir';
 
 const encoder = new TextEncoder();
 
@@ -16,10 +17,14 @@ function base64Url(bytes: Uint8Array) {
   return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 }
 
-export const GET: RequestHandler = async ({ cookies, url, fetch, platform }) => {
+export const GET: RequestHandler = async ({ cookies, url, fetch, platform, request }) => {
+  const palantir = palantirOptions(request, platform);
   const useDevelopmentProvider = dev && env.USE_DEV_IDP === 'true';
   const sessionSecret = env.SESSION_SECRET || (useDevelopmentProvider ? 'southbag-office-development-session-secret-only' : '');
-  if (!sessionSecret || (!useDevelopmentProvider && !platform?.env.DB)) redirect(302, '/login?error=unconfigured');
+  if (!sessionSecret || (!useDevelopmentProvider && !platform?.env.DB)) {
+    await capture('office_login_failed', undefined, { reason: 'unconfigured' }, palantir);
+    redirect(302, '/login?error=unconfigured');
+  }
 
   const identityOrigin = useDevelopmentProvider ? url.origin : env.IDENTITY_ORIGIN || 'https://identity.southbag.cc';
   const appOrigin = useDevelopmentProvider ? url.origin : env.ORIGIN || url.origin;
@@ -51,5 +56,6 @@ export const GET: RequestHandler = async ({ cookies, url, fetch, platform }) => 
     code_challenge_method: 'S256'
   }).toString();
 
+  void capture('office_login_started', undefined, { provider: useDevelopmentProvider ? 'development' : 'southbag' }, palantir);
   redirect(302, authorize.toString());
 };
