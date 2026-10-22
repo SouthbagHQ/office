@@ -14,8 +14,14 @@
   },
   "vars": {
     "ORIGIN": "https://office.southbag.cc",
-    "IDENTITY_ORIGIN": "https://identity.southbag.cc"
+    "IDENTITY_ORIGIN": "https://identity.southbag.cc",
+    "DRIVE_ORIGIN": "https://drive.southbag.cc"
   },
+  // Every Office document is stored in Southbag Drive. This binds Drive's
+  // private OfficeStorage RPC entrypoint; it has no public route.
+  "services": [
+    { "binding": "DRIVE", "service": "southbag-drive", "entrypoint": "OfficeStorage" }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

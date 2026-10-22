@@ -1,6 +1,8 @@
 # Southbag Office™
 
-Docs, Slides, and Sheets in one deliberately disorienting Southbag workspace. Files save immediately to the browser and synchronize to a Cloudflare D1 workspace in the background. Signed-in workspaces are keyed to Southbag Identity; signed-out visitors receive an isolated HttpOnly guest workspace.
+Docs, Slides, and Sheets in one deliberately disorienting Southbag workspace. Files save immediately to the browser and synchronize in the background to [Southbag Drive™](https://github.com/SouthbagHQ/drive). Each document is an encrypted `.southbagdocs` / `.southbagslides` / `.southbagsheets` file in your Drive, where it counts toward your 71.1 floppy disks. Drive can download, share, or **Open in Office™** any of them. Workspaces are keyed to Southbag Identity.
+
+Office talks to Drive over a Cloudflare **service binding** (`DRIVE` → `southbag-drive`'s `OfficeStorage` RPC entrypoint), never over the public internet. Drive only ever stores ciphertext; `SOUTHBAG_FILE_KEY` stays in Office.
 
 ## Local development
 
@@ -10,6 +12,8 @@ cp .env.example .env
 bun run db:migrate:local
 bun run dev
 ```
+
+Workspace sync needs Southbag Drive running locally. In a Drive checkout, run `bun run db:migrate:local && bun run build && bunx wrangler dev` (port 8787). Office's `DRIVE` binding finds it through Wrangler's dev registry. Without it, the workspace API returns `503`.
 
 Authentication is mandatory for both the editors and workspace API. On first login, Office dynamically registers a public PKCE client with Southbag Identity and stores its client ID in D1 for later logins.
 
@@ -45,6 +49,8 @@ bunx wrangler login
 bun run cf:db:create
 bun run db:migrate:remote
 ```
+
+Deploy Southbag Drive first, including its migrations. Office's `DRIVE` binding requires the `southbag-drive` Worker to export `OfficeStorage`.
 
 Set Worker secrets without putting them in `wrangler.jsonc`:
 
