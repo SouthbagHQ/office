@@ -103,5 +103,8 @@ export const GET: RequestHandler = async ({ cookies, url, fetch, platform, reque
   const name = profile.name || profile.email.split('@')[0];
   await identify(profile.sub, { email: profile.email, name }, palantir);
   await capture('office_login_completed', profile.sub, { provider: useDevelopmentProvider ? 'development' : 'southbag' }, palantir);
-  redirect(302, '/?signed-in=eventually');
+  const driveFileId = cookies.get('southbag_office_open_drive');
+  cookies.delete('southbag_office_open_drive', { path: '/' });
+  const next = driveFileId && /^[A-Za-z0-9-]{1,64}$/.test(driveFileId) ? `&drive=${driveFileId}` : '';
+  redirect(302, `/?signed-in=eventually${next}`);
 };

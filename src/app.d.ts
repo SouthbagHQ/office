@@ -1,8 +1,12 @@
+import type { DriveStorage } from '$lib/server/drive';
+
 declare global {
   namespace App {
     interface Platform {
       env: {
         DB: D1Database;
+        /** Southbag Drive's OfficeStorage entrypoint, where every document is stored. */
+        DRIVE?: DriveStorage;
         SOUTHBAG_FILE_KEY?: string;
       };
       context?: { waitUntil(promise: Promise<unknown>): void };

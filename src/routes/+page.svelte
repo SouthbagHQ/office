@@ -61,14 +61,17 @@
     loaded = true;
     const params = new URLSearchParams(location.search);
     if (params.get('auth') === 'unconfigured') notice = 'SSO exists but this deployment forgot its client credentials.';
-    if (params.has('signed-in')) notice = 'Signed in. Connected to the Southbag Cloud.';
+    if (params.has('signed-in')) notice = 'Signed in. Connected to the Southbag Cloud (Southbag Drive™).';
+    const driveFileId = params.get('drive');
     track('office_workspace_opened', {
       local_files: workspace.files.length,
       local_dirty: localStorage.getItem(storageKey('dirty')) === 'true',
       just_signed_in: params.has('signed-in')
     });
 
-    void openWorkspace(localStorage.getItem(storageKey('dirty')) === 'true');
+    void openWorkspace(localStorage.getItem(storageKey('dirty')) === 'true').then(() => {
+      if (driveFileId) void openFromDrive(driveFileId);
+    });
     const flushBeforeLeaving = () => {
       if (pendingWorkspace) void flushCloud();
     };
@@ -117,6 +120,30 @@
     }
   }
 
+  /** "Open in Office™" from Southbag Drive lands here with the Drive file id. */
+  async function openFromDrive(driveFileId: string) {
+    const url = new URL(location.href);
+    url.searchParams.delete('drive');
+    history.replaceState(history.state, '', url);
+    operationLoading = 'Opening from Southbag Drive…';
+    try {
+      const response = await fetch('/api/workspace');
+      const cloud = (await response.json().catch(() => ({}))) as Partial<CloudWorkspace> & { driveIds?: Record<string, string> };
+      const officeId = cloud.driveIds?.[driveFileId];
+      if (!response.ok || !cloud.workspace || !officeId) throw new Error('Southbag Office could not open that Drive file.');
+      if (!workspace.files.some((file) => file.id === officeId)) persist(mergeWorkspaces(workspace, cloud.workspace));
+      const file = workspace.files.find((item) => item.id === officeId);
+      if (!file) throw new Error('That document was deleted.');
+      openFile(file);
+      track('office_opened_from_drive', { kind: file.kind });
+    } catch (error) {
+      notice = error instanceof Error ? error.message : 'Southbag Office could not open that Drive file.';
+      track('office_open_from_drive_failed', { message: notice });
+    } finally {
+      operationLoading = '';
+    }
+  }
+
   function queueCloudSave(next: Workspace) {
     pendingWorkspace = next;
     syncStatus = navigator.onLine ? 'saving' : 'offline';
@@ -158,6 +185,7 @@
         });
         cloud = (await response.json().catch(() => ({}))) as Partial<CloudWorkspace>;
       }
+      if (response.status === 507) notice = cloud.error ?? 'Southbag Drive is full.';
       if (!response.ok || typeof cloud.revision !== 'number') throw new Error('Could not save to the Southbag Cloud');
       syncRevision = cloud.revision;
       syncUpdatedAt = cloud.updatedAt ?? new Date().toISOString();
@@ -413,10 +441,11 @@
           <button class="sheet-nav" onclick={() => navigate('sheet')}><span>⌗</span><strong>Sheets</strong></button>
         </div>
         <div class="sidebar-spacer"></div>
-        <button class="storage" onclick={() => (track('office_cloud_status_clicked', { status: syncStatus }), openDialog({ title: 'Southbag Cloud', message: syncStatus === 'saved' ? 'Your files are saved' : 'Your files are saved and waiting to sync.' }))}>
+        <button class="storage" onclick={() => (track('office_cloud_status_clicked', { status: syncStatus }), openDialog({ title: 'Southbag Cloud', message: syncStatus === 'saved' ? 'Your files are saved in Southbag Drive™.' : 'Your files are saved and waiting to sync to Southbag Drive™.' }))}>
           <span class="storage-ring"><i></i></span>
           <span><strong>Southbag Cloud</strong><small>{syncStatus}</small></span>
         </button>
+        <a class="help-link" href={data.driveOrigin} onclick={() => track('office_drive_clicked')}>Southbag Drive™</a>
         <a class="help-link" href="https://support.southbag.cc" onclick={() => track('office_support_clicked')}>Support</a>
       </aside>
 
