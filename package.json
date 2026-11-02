@@ -11,7 +11,7 @@
     "db:migrate:local": "wrangler d1 migrations apply office --local",
     "db:migrate:remote": "wrangler d1 migrations apply office --remote",
     "cf:db:create": "wrangler d1 create office",
-    "cf:deploy": "wrangler deploy"
+    "cf:deploy": "node scripts/check-deploy.mjs && wrangler deploy"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260625.1",
