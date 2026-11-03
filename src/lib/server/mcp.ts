@@ -18,8 +18,14 @@
 // stays reconciliation-required; the response reports what can be verified.
 
 import { centralStatus } from './identity.ts';
+import { DriveSaveError, loadDriveWorkspace, saveDriveWorkspace, type DriveStorage, type DriveUser } from './drive.ts';
+import { createFile, type OfficeFile, type Workspace } from '../workspace.ts';
 
-type Env = Record<string, unknown> & { DB: D1Database };
+type Env = Record<string, unknown> & { DB: D1Database; DRIVE?: DriveStorage; SOUTHBAG_FILE_KEY?: string };
+
+// Caller-fixable input problems: rejected BEFORE any fee moves (preflight), never charged, and
+// distinct from unknown-outcome failures.
+class ToolInputError extends Error {}
 
 // Ingo's ruling in the dev Slack thread (2026-11-03): "fee for everything", then "$1" per MCP
 // request. One clearly-marked constant so a pricing change is a one-line PR.
@@ -107,6 +113,19 @@ function toolList() {
 			inputSchema: { type: 'object', properties: {} }
 		},
 		{
+			name: 'create_document',
+			title: 'Create a document',
+			description: `Creates a text document in the token owner's Office workspace (stored in Southbag Drive like every document). Office has no action fees; only the ${money(MCP_REQUEST_FEE_CENTS)} MCP request fee applies.`,
+			inputSchema: {
+				type: 'object',
+				properties: {
+					title: { type: 'string', description: 'Document title (max 500 characters)' },
+					content: { type: 'string', description: 'Initial document content (optional)' }
+				},
+				required: ['title']
+			}
+		},
+		{
 			name: 'get_workspace_summary',
 			title: 'Get workspace summary',
 			description: `Document count, revision and last update. Costs the ${money(MCP_REQUEST_FEE_CENTS)} MCP request fee; no additional action fee.`,
@@ -129,21 +148,55 @@ function initializeResult() {
 	};
 }
 
-async function runOfficeTool(env: Env, user: AgentIdentity['user'], name: string): Promise<{ text: string; data: Json }> {
-	const row = await env.DB.prepare('SELECT data, revision, updated_at FROM workspaces WHERE owner_key = ?')
-		.bind(`user:${user.id}`).first<{ data: string; revision: number; updated_at: string }>();
-	if (!row) return { text: 'No workspace. The paperwork has not begun.', data: name === 'list_documents' ? { documents: [] } : { documents: 0, revision: 0, updatedAt: null } };
-	let files: { title?: unknown; type?: unknown }[] = [];
-	try {
-		const data = JSON.parse(row.data) as { files?: { title?: unknown; type?: unknown }[] };
-		files = Array.isArray(data.files) ? data.files : [];
-	} catch { /* an unparseable workspace reads as empty here, not as a crash */ }
+// The token owner's Drive identity: Office workspaces live in Southbag Drive (the same store the
+// web app uses through the DRIVE binding), encrypted with SOUTHBAG_FILE_KEY. Office's own D1 only
+// holds pre-Drive workspaces for one-time migration.
+function officeUser(user: AgentIdentity['user']): DriveUser {
+	return { sub: user.id, email: user.email ?? '', name: user.name };
+}
+
+async function runOfficeTool(env: Env, user: AgentIdentity['user'], name: string, args: Json): Promise<{ text: string; data: Json }> {
+	const drive = env.DRIVE;
+	const key = env.SOUTHBAG_FILE_KEY;
+	if (!drive || !key) throw new Error('storage-not-configured');
+	const stored = await loadDriveWorkspace(drive, officeUser(user), key, env.DB ?? null);
+
+	if (name === 'create_document') {
+		const title = (typeof args.title === 'string' ? args.title.trim() : '').slice(0, 500);
+		const content = typeof args.content === 'string' ? args.content : '';
+		const file = createFile('doc', user.name) as OfficeFile & { content: string };
+		file.title = title;
+		file.content = content;
+		const workspace: Workspace = stored
+			? { ...stored.workspace, files: [...stored.workspace.files, file] }
+			: { files: [file], deletedIds: [] };
+		try {
+			const saved = await saveDriveWorkspace(drive, officeUser(user), key, workspace, stored?.revision ?? 0);
+			if (!saved.ok) return { text: 'The workspace changed underneath this save. Retry with a new Idempotency-Key. Only the request fee was charged.', data: { conflict: true } };
+			return { text: `Document '${file.title}' created.`, data: { document: { id: file.id, title: file.title, kind: 'doc' }, revision: saved.revision } };
+		} catch (error) {
+			if (error instanceof DriveSaveError)
+				return { text: `${error.message} Only the request fee was charged.`, data: { failed: error.reason } };
+			throw error;
+		}
+	}
+
+	const files = stored?.workspace.files ?? [];
 	if (name === 'list_documents') {
-		const documents = files.map((f, i) => ({ index: i, title: typeof f.title === 'string' ? f.title : '(untitled)', type: typeof f.type === 'string' ? f.type : null }));
+		const documents = files.map(f => ({ id: f.id, title: f.title, kind: f.kind, modified: f.modified }));
 		return { text: documents.length ? `${documents.length} document${documents.length === 1 ? '' : 's'}.` : 'No documents. Pure potential.', data: { documents } };
 	}
 	// get_workspace_summary
-	return { text: `${files.length} documents, revision ${row.revision}.`, data: { documents: files.length, revision: row.revision, updatedAt: row.updated_at } };
+	if (!stored) return { text: 'No workspace. The paperwork has not begun.', data: { documents: 0, revision: 0, updatedAt: null } };
+	return { text: `${files.length} documents, revision ${stored.revision}.`, data: { documents: files.length, revision: stored.revision, updatedAt: stored.updatedAt } };
+}
+
+// Validation BEFORE fees: argument shape runs here, before the journal claim and any fee moves.
+function preflightOfficeTool(name: string, args: Json): void {
+	if (name === 'create_document') {
+		if (typeof args.title !== 'string' || !args.title.trim()) throw new ToolInputError('create_document needs a title.');
+		if (args.content !== undefined && typeof args.content !== 'string') throw new ToolInputError('create_document content must be text.');
+	}
 }
 
 // A 'pending' journal row means a previous call with this key did not finish cleanly. It is NEVER
@@ -177,6 +230,16 @@ async function handleToolsCall(request: Request, env: Env, message: { id: unknow
 		if (stored.structuredContent?.receipt) stored.structuredContent.receipt.duplicate = true;
 		return json(rpcResult(message.id, stored));
 	};
+
+	const args = (message.params?.arguments ?? {}) as Json;
+	try {
+		preflightOfficeTool(name, args);
+	} catch (error) {
+		if (error instanceof ToolInputError)
+			return json(rpcResult(message.id, { content: [{ type: 'text', text: `${error.message} No fees charged.` }], isError: true, structuredContent: { rejected: 'invalid_input' } }));
+		throw error;
+	}
+	if (!env.DRIVE || !env.SOUTHBAG_FILE_KEY) return json(rpcError(message.id, -32603, 'Document storage is not configured on this service.'), 500);
 
 	const existing = await db.prepare('SELECT tool, args_hash, status, response FROM mcp_call WHERE idempotency_key = ?').bind(rowKey).first<{ tool: string; args_hash: string; status: string; response: string | null }>();
 	if (existing) {
@@ -215,7 +278,7 @@ async function handleToolsCall(request: Request, env: Env, message: { id: unknow
 
 	let result: Json;
 	try {
-		const { text, data } = await runOfficeTool(env, auth.user, name);
+		const { text, data } = await runOfficeTool(env, auth.user, name, args);
 		result = {
 			content: [{ type: 'text', text }],
 			isError: false,

@@ -5,6 +5,42 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { handleMcp, MCP_REQUEST_FEE_CENTS } from '../src/lib/server/mcp.ts';
+import { encryptSouthbagFile } from '../src/lib/server/file-format.ts';
+
+const FILE_KEY = Buffer.alloc(32, 7).toString('base64');
+
+// In-memory stand-in for the Drive OfficeStorage entrypoint: packages keyed by driveFileId,
+// revision-checked commits, exactly the DriveStorage contract.
+function driveStub(seedFiles = []) {
+  const state = { revision: 0, updatedAt: '2026-11-03T00:00:00Z', packages: [], deletedIds: [] };
+  return {
+    state,
+    async seed(files) {
+      for (const file of files)
+        state.packages.push({ officeId: file.id, driveFileId: `d-${file.id}`, bytes: await encryptSouthbagFile(file, FILE_KEY) });
+      state.revision = 1;
+    },
+    async snapshot() {
+      return { exists: state.packages.length > 0 || state.revision > 0, packages: state.packages, deletedIds: state.deletedIds, revision: state.revision, updatedAt: state.updatedAt };
+    },
+    async index() {
+      return { revision: state.revision, deletedIds: state.deletedIds, entries: state.packages.map(p => ({ driveFileId: p.driveFileId, officeId: p.officeId, modified: null })) };
+    },
+    async commit(user, commit) {
+      if (commit.expectedRevision !== state.revision) return { ok: false, reason: 'conflict' };
+      for (const up of commit.upserts) {
+        const existing = state.packages.find(p => p.officeId === up.officeId);
+        if (existing) existing.bytes = up.bytes;
+        else state.packages.push({ officeId: up.officeId, driveFileId: `d-${up.officeId}`, bytes: up.bytes });
+      }
+      state.deletedIds = [...new Set([...state.deletedIds, ...commit.deletedIds])];
+      state.revision += 1;
+      state.updatedAt = '2026-11-03T01:00:00Z';
+      return { ok: true, revision: state.revision, updatedAt: state.updatedAt, skipped: [] };
+    },
+    async adopt() { return { revision: state.revision, updatedAt: state.updatedAt, adopted: [] }; },
+  };
+}
 
 function d1Shim(db) {
   const prepare = sql => ({
@@ -22,12 +58,14 @@ function d1Shim(db) {
 function setup(userId, { frozen = false, identityUnreachable = false } = {}) {
   const db = new DatabaseSync(':memory:');
   for (const file of readdirSync('migrations').sort()) db.exec(readFileSync('migrations/' + file, 'utf8'));
-  const data = JSON.stringify({ files: [{ title: 'Quarterly Excuses', type: 'document' }, { title: 'Budget', type: 'sheet' }] });
-  db.prepare('INSERT INTO workspaces (owner_key, data, revision, updated_at) VALUES (?, ?, 7, ?)').run(`user:${userId}`, data, '2026-11-03T00:00:00Z');
+
   const charges = [];
   const chargedKeys = new Map();
+  const drive = driveStub();
   const env = {
     DB: d1Shim(db),
+    DRIVE: drive,
+    SOUTHBAG_FILE_KEY: FILE_KEY,
     IDENTITY_INTERNAL_SECRET: 'bsec',
     IDENTITY_ORIGIN: 'http://identity.test',
     BANKING: {
@@ -50,7 +88,7 @@ function setup(userId, { frozen = false, identityUnreachable = false } = {}) {
     }
     return new Response(JSON.stringify({ frozen }), { status: 200 });
   };
-  return { db, env, charges, restore: () => { globalThis.fetch = originalFetch; } };
+  return { db, env, charges, drive, restore: () => { globalThis.fetch = originalFetch; } };
 }
 
 const post = (body, headers = {}) => new Request('https://office.southbag.cc/mcp', {
@@ -76,17 +114,21 @@ test('tools/list is authenticated but free', async () => {
   const { env, charges, restore } = setup('u1');
   assert.equal((await handleMcp(post(rpc(1, 'tools/list')), env)).status, 401);
   const res = await handleMcp(post(rpc(2, 'tools/list'), auth), env);
-  assert.deepEqual((await res.json()).result.tools.map(t => t.name), ['list_documents', 'get_workspace_summary']);
+  assert.deepEqual((await res.json()).result.tools.map(t => t.name), ['list_documents', 'create_document', 'get_workspace_summary']);
   assert.equal(charges.length, 0);
   restore();
 });
 
 test('list_documents charges $1 and returns titles with a receipt; retry replays', async () => {
-  const { db, env, charges, restore } = setup('u1');
+  const { db, env, charges, drive, restore } = setup('u1');
+  await drive.seed([
+    { id: 'doc-1', kind: 'doc', title: 'Quarterly Excuses', modified: '2026-11-01T00:00:00Z', owner: 'Ingo', content: '' },
+    { id: 'sheet-1', kind: 'sheet', title: 'Budget', modified: '2026-11-01T00:00:00Z', owner: 'Ingo', cells: {} },
+  ]);
   const res = await handleMcp(post(rpc(1, 'tools/call', { name: 'list_documents', arguments: {} }), { ...auth, ...key }), env);
   const body = await res.json();
   assert.equal(body.result.isError, false);
-  assert.deepEqual(body.result.structuredContent.documents.map(d => d.title), ['Quarterly Excuses', 'Budget']);
+  assert.deepEqual(body.result.structuredContent.documents.map(d => d.title).sort(), ['Budget', 'Quarterly Excuses']);
   assert.equal(body.result.structuredContent.receipt.requestFee.amount, MCP_REQUEST_FEE_CENTS);
   assert.equal(charges[0].idempotencyKey, 'mcp|office|request|u1|test-key-0001');
   assert.equal(journal(db)[0].status, 'done');
@@ -97,11 +139,15 @@ test('list_documents charges $1 and returns titles with a receipt; retry replays
 });
 
 test('get_workspace_summary returns counts and revision', async () => {
-  const { env, restore } = setup('u1');
+  const { env, drive, restore } = setup('u1');
+  await drive.seed([
+    { id: 'doc-1', kind: 'doc', title: 'Quarterly Excuses', modified: '2026-11-01T00:00:00Z', owner: 'Ingo', content: '' },
+    { id: 'sheet-1', kind: 'sheet', title: 'Budget', modified: '2026-11-01T00:00:00Z', owner: 'Ingo', cells: {} },
+  ]);
   const res = await handleMcp(post(rpc(1, 'tools/call', { name: 'get_workspace_summary' }), { ...auth, ...key }), env);
   const body = await res.json();
   assert.equal(body.result.structuredContent.documents, 2);
-  assert.equal(body.result.structuredContent.revision, 7);
+  assert.equal(body.result.structuredContent.revision, 1);
   restore();
 });
 
@@ -141,5 +187,34 @@ test('a pending row is terminal: never re-run, then replays once the original la
   const replay = await handleMcp(post(rpc(2, 'tools/call', { name: 'list_documents' }), { ...auth, ...key }), env);
   assert.equal((await replay.json()).result.structuredContent.receipt.duplicate, true);
   assert.equal(charges.length, 0);
+  restore();
+});
+
+test('create_document saves through the Drive store, charges only the request fee, replays safely', async () => {
+  const { db, env, charges, drive, restore } = setup('u1');
+  const res = await handleMcp(post(rpc(1, 'tools/call', { name: 'create_document', arguments: { title: 'Agent Log', content: 'Day one.' } }), { ...auth, ...key }), env);
+  const body = await res.json();
+  assert.equal(body.result.isError, false);
+  const doc = body.result.structuredContent.document;
+  assert.equal(doc.title, 'Agent Log');
+  assert.equal(doc.kind, 'doc');
+  assert.equal(charges.length, 1);
+  assert.equal(charges[0].amount, 100);
+  assert.equal(drive.state.packages.length, 1);
+  const res2 = await handleMcp(post(rpc(2, 'tools/call', { name: 'create_document', arguments: { title: 'Agent Log', content: 'Day one.' } }), { ...auth, ...key }), env);
+  assert.equal((await res2.json()).result.structuredContent.receipt.duplicate, true);
+  assert.equal(drive.state.packages.length, 1);
+  assert.equal(charges.length, 1);
+  restore();
+});
+
+test('create_document validates BEFORE fees: missing title is a free rejection', async () => {
+  const { db, env, charges, restore } = setup('u1');
+  const res = await handleMcp(post(rpc(1, 'tools/call', { name: 'create_document', arguments: {} }), { ...auth, ...key }), env);
+  const body = await res.json();
+  assert.equal(body.result.isError, true);
+  assert.match(body.result.content[0].text, /No fees charged/);
+  assert.equal(charges.length, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM mcp_call').get().n, 0);
   restore();
 });

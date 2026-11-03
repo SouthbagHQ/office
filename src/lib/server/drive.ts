@@ -1,6 +1,6 @@
-import { newOfficeFileId, type Kind, type OfficeFile, type Workspace } from '$lib/workspace';
-import { decryptSouthbagFile, encryptSouthbagFile } from './file-format';
-import { parseWorkspace, rowToWorkspace, workspaceOwner, type StoredWorkspace } from './workspace';
+import { newOfficeFileId, type Kind, type OfficeFile, type Workspace } from '../workspace.ts';
+import { decryptSouthbagFile, encryptSouthbagFile } from './file-format.ts';
+import { parseWorkspace, rowToWorkspace, workspaceOwner, type StoredWorkspace } from './workspace.ts';
 
 // Southbag Drive™ is the storage for every Office document. The Worker reaches
 // Drive's `OfficeStorage` RPC entrypoint through the `DRIVE` service binding;
@@ -46,11 +46,10 @@ const MAX_WORKSPACE_BYTES = 2_000_000;
 export type DriveWorkspace = StoredWorkspace & { driveIds: Record<string, string> };
 
 export class DriveSaveError extends Error {
-  constructor(
-    readonly reason: 'invalid' | 'storage_full' | 'storage_error',
-    message: string
-  ) {
+  readonly reason: 'invalid' | 'storage_full' | 'storage_error';
+  constructor(reason: 'invalid' | 'storage_full' | 'storage_error', message: string) {
     super(message);
+    this.reason = reason;
   }
 }
 
