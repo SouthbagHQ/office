@@ -8,6 +8,11 @@ declare global {
         /** Southbag Drive's OfficeStorage entrypoint, where every document is stored. */
         DRIVE?: DriveStorage;
         SOUTHBAG_FILE_KEY?: string;
+        IDENTITY_INTERNAL_SECRET?: string;
+        IDENTITY_ORIGIN?: string;
+        BANKING?: {
+          charge(input: Record<string, unknown>): Promise<{ balance: number | null; opened: boolean; duplicate?: boolean }>;
+        };
       };
       context?: { waitUntil(promise: Promise<unknown>): void };
     }
