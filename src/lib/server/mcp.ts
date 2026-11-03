@@ -39,6 +39,11 @@ const FROZEN_TEXT = 'Your account is frozen pending review. Unfreeze at https://
 const STATUS_UNKNOWN_TEXT = 'Southbag Identity is unavailable, so your account status cannot be checked. Try again shortly.';
 
 type Json = Record<string, unknown>;
+
+// Token scopes: read tokens call the read tools (billed at the request fee - read is not free);
+// write tools additionally require the token's 'write' scope, issued on the /agents page.
+// Money-moving tools are not exposed to agents in any scope.
+const WRITE_TOOLS = new Set(['create_document']);
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
 	new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', ...headers } });
 const rpcResult = (id: unknown, result: unknown) => ({ jsonrpc: '2.0', id, result });
@@ -57,7 +62,7 @@ const argsHash = async (name: string, args: unknown): Promise<string> => {
 	return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
-interface AgentIdentity { user: { id: string; email: string | null; name: string }; tokenId: string; tokenName: string }
+interface AgentIdentity { user: { id: string; email: string | null; name: string }; tokenId: string; tokenName: string; scopes: string[] }
 type AgentAuth = AgentIdentity | { status: number; text: string };
 const authFailed = (status: number, text: string): AgentAuth => ({ status, text });
 
@@ -85,9 +90,10 @@ async function resolveAgent(env: Env, token: string): Promise<AgentAuth> {
 		return authFailed(503, 'Agent access is misconfigured on this service.');
 	}
 	if (!response.ok) return authFailed(503, 'Southbag Identity is unavailable, so your agent token cannot be checked. Try again shortly.');
-	const row = await response.json() as { userId?: string; email?: string | null; name?: string | null; tokenId?: string; tokenName?: string };
+	const row = await response.json() as { userId?: string; email?: string | null; name?: string | null; tokenId?: string; tokenName?: string; scopes?: unknown };
 	if (!row || typeof row.userId !== 'string' || !row.userId) return authFailed(401, 'Unknown or revoked agent token.');
-	return { user: { id: row.userId, email: row.email ?? null, name: row.name ?? row.userId }, tokenId: String(row.tokenId ?? ''), tokenName: String(row.tokenName ?? '') };
+	const scopes = Array.isArray(row.scopes) && row.scopes.includes('write') ? ['read', 'write'] : ['read'];
+  return { user: { id: row.userId, email: row.email ?? null, name: row.name ?? row.userId }, tokenId: String(row.tokenId ?? ''), tokenName: String(row.tokenName ?? ''), scopes };
 }
 
 interface ChargeResult { balance: number | null; opened: boolean; duplicate?: boolean }
@@ -104,8 +110,8 @@ async function chargeFee(env: Env, user: AgentIdentity['user'], key: string): Pr
 	});
 }
 
-function toolList() {
-	return [
+function toolList(scopes: string[] = ['read']) { // scoped: write tools hidden from read-only tokens
+	const tools = [
 		{
 			name: 'list_documents',
 			title: 'List documents',
@@ -132,6 +138,7 @@ function toolList() {
 			inputSchema: { type: 'object', properties: {} }
 		}
 	];
+	return tools.filter(tool => scopes.includes('write') || !WRITE_TOOLS.has(tool.name));
 }
 
 function initializeResult() {
@@ -216,8 +223,11 @@ async function handleToolsCall(request: Request, env: Env, message: { id: unknow
 	const auth = await resolveAgent(env, request.headers.get('authorization')?.match(/^Bearer (.+)$/i)?.[1] || '');
 	if ('status' in auth) return json(rpcError(message.id, -32001, auth.text), auth.status);
 	const name = typeof message.params?.name === 'string' ? message.params.name : '';
-	if (!toolList().some(tool => tool.name === name))
+	if (!toolList(auth.scopes).some(tool => tool.name === name)) {
+		if (toolList(['read', 'write']).some(tool => tool.name === name))
+			return json(rpcError(message.id, -32602, `Tool '${name}' needs an agent token with write scope. Issue one at https://identity.southbag.cc/agents. No fees charged.`));
 		return json(rpcError(message.id, -32602, `Unknown tool '${name}'. tools/list is free and quotes every fee.`));
+	}
 	const key = request.headers.get('idempotency-key')?.trim() || '';
 	if (key.length < 8 || key.length > 120)
 		return json(rpcError(message.id, -32602, 'tools/call requires an Idempotency-Key header (8-120 characters). A retried key replays its stored result without charging again.'));
@@ -345,7 +355,7 @@ export async function handleMcp(request: Request, env: Env): Promise<Response> {
 			// Discovery is free but authenticated: the catalogue is for customers' agents.
 			const auth = await resolveAgent(env, request.headers.get('authorization')?.match(/^Bearer (.+)$/i)?.[1] || '');
 			if ('status' in auth) return json(rpcError(message.id, -32001, auth.text), auth.status);
-			return json(rpcResult(message.id, { tools: toolList() }));
+			return json(rpcResult(message.id, { tools: toolList(auth.scopes) }));
 		}
 		case 'tools/call':
 			return await handleToolsCall(request, env, message as { id: unknown; params?: { name?: unknown; arguments?: unknown } });

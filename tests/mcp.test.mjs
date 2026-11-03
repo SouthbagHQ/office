@@ -55,7 +55,7 @@ function d1Shim(db) {
   return { prepare };
 }
 
-function setup(userId, { frozen = false, identityUnreachable = false } = {}) {
+function setup(userId, { frozen = false, identityUnreachable = false, scopes = ['read', 'write'] } = {}) {
   const db = new DatabaseSync(':memory:');
   for (const file of readdirSync('migrations').sort()) db.exec(readFileSync('migrations/' + file, 'utf8'));
 
@@ -84,7 +84,7 @@ function setup(userId, { frozen = false, identityUnreachable = false } = {}) {
     if (String(url).endsWith('/api/internal/agent-token')) {
       const token = JSON.parse(init.body).token;
       if (!String(token).startsWith('good-')) return new Response(JSON.stringify({ error: 'unknown_token' }), { status: 404 });
-      return new Response(JSON.stringify({ tokenId: 'tok1', tokenName: 'test', userId, email: `${userId}@x.test`, name: 'Ingo' }), { status: 200 });
+      return new Response(JSON.stringify({ tokenId: 'tok1', tokenName: 'test', userId, email: `${userId}@x.test`, name: 'Ingo', scopes }), { status: 200 });
     }
     return new Response(JSON.stringify({ frozen }), { status: 200 });
   };
@@ -216,5 +216,15 @@ test('create_document validates BEFORE fees: missing title is a free rejection',
   assert.match(body.result.content[0].text, /No fees charged/);
   assert.equal(charges.length, 0);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM mcp_call').get().n, 0);
+  restore();
+});
+
+test('a read-only token cannot see or call create_document; nothing is charged', async () => {
+  const { db, env, charges, restore } = setup('u1', { scopes: ['read'] });
+  const list = await handleMcp(post(rpc(1, 'tools/list'), auth), env);
+  assert.deepEqual((await list.json()).result.tools.map(t => t.name), ['list_documents', 'get_workspace_summary']);
+  const res = await handleMcp(post(rpc(2, 'tools/call', { name: 'create_document', arguments: { title: 'Sneaky' } }), { ...auth, ...key }), env);
+  assert.equal((await res.json()).error.code, -32602);
+  assert.equal(charges.length, 0);
   restore();
 });
