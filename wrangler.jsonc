@@ -20,7 +20,10 @@
   // Every Office document is stored in Southbag Drive. This binds Drive's
   // private OfficeStorage RPC entrypoint; it has no public route.
   "services": [
-    { "binding": "DRIVE", "service": "southbag-drive", "entrypoint": "OfficeStorage" }
+    { "binding": "DRIVE", "service": "southbag-drive", "entrypoint": "OfficeStorage" },
+    // Every MCP request fee is taken from Southbag Online Banking through its Billing entrypoint
+    // (RPC, not public). Deploy banking first.
+    { "binding": "BANKING", "service": "southbag-online-banking", "entrypoint": "Billing" }
   ],
   "d1_databases": [
     {

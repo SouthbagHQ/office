@@ -1,6 +1,6 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
-import { southbagMimeType } from '../file-format';
-import { parseWorkspace } from './workspace';
+import { southbagMimeType } from '../file-format.ts';
+import { parseWorkspace } from './workspace.ts';
 import type { Kind, OfficeFile } from '../workspace';
 
 const MAGIC = strToU8('SOUTHBAG');
