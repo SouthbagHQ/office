@@ -192,7 +192,7 @@ async function handleToolsCall(request: Request, env: Env, message: { id: unknow
 
 	// Central freeze check BEFORE any fee moves, fresh per call, fail closed. Frozen/unknown
 	// answers are not journaled and not charged, so the same key works once the account is back.
-	const central = await centralStatus(env, auth.user.id);
+	const central = await centralStatus(env as unknown as Record<string, string | undefined>, auth.user.id);
 	if (central === 'unknown') return json(rpcResult(message.id, { content: [{ type: 'text', text: STATUS_UNKNOWN_TEXT }], isError: true }));
 	if (central !== 'off' && central.frozen) return json(rpcResult(message.id, { content: [{ type: 'text', text: FROZEN_TEXT }], isError: true }));
 
