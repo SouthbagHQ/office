@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { DialogRequest } from '$lib/dialog';
-  import { normalizeKevin } from '$lib/kevin';
   import type { SheetFile } from '$lib/workspace';
   import { cellName, evaluateCell } from '$lib/sheet';
   import { track } from '$lib/palantir';
@@ -20,7 +19,7 @@
   $: selectedRaw = file.cells[selected] ?? '';
 
   function setCell(name: string, value: string) {
-    onChange({ ...file, cells: { ...file.cells, [name]: normalizeKevin(value) }, modified: new Date().toISOString() });
+    onChange({ ...file, cells: { ...file.cells, [name]: value }, modified: new Date().toISOString() });
   }
 
   // Fires on commit (blur/enter), not per keystroke.
@@ -67,7 +66,7 @@
   <header class="editor-titlebar sheets-titlebar">
     <button class="exit-button sheets-mark" onclick={onExit} aria-label="Back to files">▦</button>
     <div class="title-stack">
-      <input class="file-title-input" aria-label="Spreadsheet title" value={file.title} oninput={(event) => onChange({ ...file, title: normalizeKevin(event.currentTarget.value), modified: new Date().toISOString() })} onchange={(event) => track('office_file_renamed', { kind: 'sheet', title_length: event.currentTarget.value.length })} />
+      <input class="file-title-input" aria-label="Spreadsheet title" value={file.title} oninput={(event) => onChange({ ...file, title: event.currentTarget.value, modified: new Date().toISOString() })} onchange={(event) => track('office_file_renamed', { kind: 'sheet', title_length: event.currentTarget.value.length })} />
       <nav class="menu-strip" aria-label="Spreadsheet menus">
         <button onclick={() => menu('file', () => onDialog({ title: 'File', message: 'This spreadsheet saves automatically to the Southbag cloud.' }))}>File</button><button onclick={() => menu('edit', () => onDialog({ title: 'Edit cells', message: 'Select a cell, then type in the cell or formula bar.' }))}>Edit</button><button onclick={() => menu('view', toggleRaw)}>{showRaw ? 'Show values' : 'Show formulas'}</button><button onclick={() => menu('chart', () => toggleChart('menu'))}>{showChart ? 'Hide chart' : 'Show chart'}</button>
       </nav>

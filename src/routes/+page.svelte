@@ -8,7 +8,6 @@
   import Slides from '$lib/components/Slides.svelte';
   import type { DialogRequest } from '$lib/dialog';
   import { southbagFilename } from '$lib/file-format';
-  import { normalizeKevin } from '$lib/kevin';
   import { track } from '$lib/palantir';
   import { createFile, initialWorkspace, newOfficeFileId, type Kind, type OfficeFile, type Workspace } from '$lib/workspace';
   import type { PageData } from './$types';
@@ -346,7 +345,7 @@
   }
 
   function search(value: string) {
-    query = normalizeKevin(value);
+    query = value;
     if (searchTimer) window.clearTimeout(searchTimer);
     if (!query) return;
     // Search never finds anything; the interesting number is how many people keep trying.
