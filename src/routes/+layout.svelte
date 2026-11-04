@@ -21,7 +21,7 @@
 <svelte:head>
   <link rel="icon" href="/southbag-logo.png" type="image/png" />
   <script
-    src="/palantir.js"
+    src="https://cdn.jsdelivr.net/gh/southbag-agent/southbag.js@2d7e33e06c2956360133a6610feda966016e7246/southbag.js"
     data-app="office"
     data-user-id={data.user?.sub ?? ''}
     data-user-email={data.user?.email ?? ''}

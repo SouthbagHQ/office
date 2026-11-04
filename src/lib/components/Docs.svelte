@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { DialogRequest } from '$lib/dialog';
   import { sanitizeDocumentHtml } from '$lib/document-html';
-  import { normalizeKevin, normalizeKevinText } from '$lib/kevin';
   import type { DocumentFile } from '$lib/workspace';
   import { tick } from 'svelte';
   import { track } from '$lib/palantir';
@@ -23,7 +22,6 @@
   $: words = plainText ? plainText.split(' ').length : 0;
 
   function updateContent() {
-    normalizeKevinText(page);
     const content = sanitizeDocumentHtml(page.innerHTML);
     onChange({ ...file, content, modified: new Date().toISOString() });
     savedMessage = 'Saving…';
@@ -91,7 +89,7 @@
 
   let findTimer: number | undefined;
   function findTyped(value: string) {
-    find = normalizeKevin(value);
+    find = value;
     if (findTimer) window.clearTimeout(findTimer);
     if (!find) return;
     findTimer = window.setTimeout(
@@ -110,7 +108,7 @@
         class="file-title-input"
         aria-label="Document title"
         value={file.title}
-        oninput={(event) => onChange({ ...file, title: normalizeKevin(event.currentTarget.value), modified: new Date().toISOString() })}
+        oninput={(event) => onChange({ ...file, title: event.currentTarget.value, modified: new Date().toISOString() })}
         onchange={(event) => renameDocument(event.currentTarget.value)}
       />
       <nav class="menu-strip" aria-label="Document menus">
