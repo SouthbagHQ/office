@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { normalizeKevinText } from '$lib/kevin';
-
   export let value: string;
   export let className: string;
   export let label: string;
@@ -15,7 +13,6 @@
   role="textbox"
   aria-label={label}
   oninput={(event) => {
-    normalizeKevinText(event.currentTarget);
     onChange(event.currentTarget.textContent ?? '');
   }}
 >{initialValue}</div>
