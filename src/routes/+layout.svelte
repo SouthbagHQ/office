@@ -21,7 +21,7 @@
 <svelte:head>
   <link rel="icon" href="/southbag-logo.png" type="image/png" />
   <script
-    src="https://cdn.jsdelivr.net/gh/southbag-agent/southbag.js@2d7e33e06c2956360133a6610feda966016e7246/southbag.js"
+    src="https://cdn.jsdelivr.net/gh/southbag-agent/southbag.js@ffb01b96602e488702acd5897ddc384f0d65cbec/southbag.js" integrity="sha384-dUuMJLfNDWaxW0dKYOA/XcF6mMyMa5kzHCkzNSkMQpeRpqjfn6/l+AFUi5Nd6Y9v" crossorigin="anonymous"
     data-app="office"
     data-user-id={data.user?.sub ?? ''}
     data-user-email={data.user?.email ?? ''}

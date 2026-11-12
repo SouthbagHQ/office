@@ -1,5 +1,4 @@
 <script lang="ts">
-
   export let value: string;
   export let className: string;
   export let label: string;
@@ -14,6 +13,6 @@
   role="textbox"
   aria-label={label}
   oninput={(event) => {
-        onChange(event.currentTarget.textContent ?? '');
+    onChange(event.currentTarget.textContent ?? '');
   }}
 >{initialValue}</div>
